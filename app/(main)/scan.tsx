@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Image, StyleSheet, Dimensions, StatusBar } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { usePSLScanAnimation } from '../../hooks/usePSLScanAnimation';
@@ -7,6 +8,7 @@ import ScanOverlay from '../../components/scan/ScanOverlay';
 import MetricCard from '../../components/scan/MetricCard';
 import GoldReferenceLine from '../../components/scan/GoldReferenceLine';
 import ScanProgressBar from '../../components/scan/ScanProgressBar';
+import { COLORS } from '../../lib/constants';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -14,16 +16,21 @@ export default function ScanScreen() {
   const router = useRouter();
   const { photoUri: paramPhotoUri } = useLocalSearchParams<{ photoUri: string }>();
   const [photoUri, setPhotoUri] = useState<string | null>(paramPhotoUri || null);
-
   const {
     currentMetric,
     currentMetricIndex,
     progress,
+    scanLineY,
     goldLineY,
     isComplete,
   } = usePSLScanAnimation();
 
-  // If no photoUri was passed via params, find the most recent front photo
+  // Animated style for the moving scan line (absolute pixel Y)
+  const scanLineAnimatedStyle = useAnimatedStyle(() => ({
+    top: scanLineY.value,
+  }));
+
+  // Find photo if not passed via params
   useEffect(() => {
     if (photoUri) return;
 
@@ -80,11 +87,17 @@ export default function ScanScreen() {
       {/* Progress bar — top of screen */}
       <ScanProgressBar progress={progress} />
 
+      {/* Continuous scan line — sweeps top to bottom */}
+      <Animated.View style={[styles.scanLine, scanLineAnimatedStyle]} />
+
       {/* Gold reference line — horizontal, moves per metric group */}
       <GoldReferenceLine yPosition={goldLineY} />
 
       {/* SVG AR overlay lines for current metric */}
-      <ScanOverlay currentMetric={currentMetric} />
+      <ScanOverlay
+        currentMetric={currentMetric}
+        scanLineY={scanLineY}
+      />
 
       {/* Metric card — bottom card cycling through 20 metrics */}
       <MetricCard
@@ -113,5 +126,17 @@ const styles = StyleSheet.create({
     width: SCREEN_W,
     height: SCREEN_H,
     backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  scanLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });

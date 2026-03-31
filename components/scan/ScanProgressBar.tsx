@@ -20,6 +20,12 @@ export default function ScanProgressBar({ progress }: ScanProgressBarProps) {
     width: Math.max(0, progress.value * BAR_W),
   }));
 
+  const thumbStyle = useAnimatedStyle(() => {
+    const rawX = progress.value * BAR_W - THUMB_SIZE / 2;
+    const clampedX = Math.min(Math.max(0, rawX), BAR_W - THUMB_SIZE);
+    return { left: clampedX };
+  });
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.container}>
@@ -34,8 +40,8 @@ export default function ScanProgressBar({ progress }: ScanProgressBarProps) {
           <View style={styles.track} />
           {/* Animated fill */}
           <Animated.View style={[styles.fill, fillStyle]} />
-          {/* Static thumb — fixed at right end of track (per reference frames) */}
-          <View style={styles.thumb} />
+          {/* Thumb — tracks progress value */}
+          <Animated.View style={[styles.thumb, thumbStyle]} />
         </View>
       </View>
     </View>
@@ -93,7 +99,6 @@ const styles = StyleSheet.create({
   },
   thumb: {
     position: 'absolute',
-    right: 0,
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
