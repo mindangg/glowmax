@@ -13,9 +13,9 @@ export default function GrainBackground({ children }: Props) {
     <View style={styles.container}>
       <ImageBackground
         source={grainTexture}
-        resizeMode="repeat"
+        resizeMode="cover"
         style={styles.background}
-        imageStyle={{ opacity: 0.22 }}
+        imageStyle={{ opacity: 1 }}
       >
         {children}
       </ImageBackground>

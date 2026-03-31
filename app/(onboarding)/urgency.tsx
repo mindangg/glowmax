@@ -13,6 +13,7 @@ import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlas
 import MixedText from '../../components/ui/MixedText';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
+import GrainBackground from "../../components/backgrounds/GrainBackground";
 
 const { width: SW } = Dimensions.get('window');
 
@@ -42,8 +43,20 @@ export default function UrgencyScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <ChromaticGlassBackground>
+    <GrainBackground>
       <View style={styles.container}>
+
+        {/* First text block */}
+        <Animated.View style={[styles.textBlock, text1Style]}>
+          <MixedText
+            segments={[
+              { text: 'NHƯNG ', size: 18 },
+              { text: 'CƠ HỘI NÀY\n', bold: true, size: 28 },
+              { text: 'SẼ KHÔNG KÉO DÀI MÃI.', bold: true, size: 28 },
+            ]}
+          />
+        </Animated.View>
+
         {/* Clock icon SVG */}
         <Animated.View style={[styles.clockWrapper, clockStyle]}>
           <Svg width={100} height={140} viewBox="0 0 100 140">
@@ -63,22 +76,20 @@ export default function UrgencyScreen() {
           </Svg>
         </Animated.View>
 
-        {/* First text block */}
-        <Animated.View style={[styles.textBlock, text1Style]}>
+        <Animated.View style={[styles.textBlock, text2Style]}>
           <MixedText
-            segments={[
-              { text: 'NHƯNG ', size: 18 },
-              { text: 'CƠ HỘI NÀY\n', bold: true, size: 28 },
-              { text: 'SẼ KHÔNG KÉO DÀI MÃI.', bold: true, size: 28 },
-            ]}
+              segments={[
+                { text: 'BẠN VẪN CÒN SỚM,\n', bold: true, size: 30, color: COLORS.TEXT_PRIMARY },
+                { text: 'NHƯNG CUỘC CHƠI\n', size: 16 },
+                { text: 'SẼ SỚM THAY ĐỔI HOÀN TOÀN.', bold: true, size: 16 },
+              ]}
           />
         </Animated.View>
 
-        {/* Second text block */}
         <Animated.View style={[styles.textBlock, text2Style]}>
           <MixedText
             segments={[
-              { text: 'BẠN VẪN CÒN SỚM,\n', bold: true, size: 20, color: COLORS.TEXT_PRIMARY },
+              { text: 'BẠN VẪN CÒN SỚM,\n', bold: true, size: 30, color: COLORS.TEXT_PRIMARY },
               { text: 'NHƯNG CUỘC CHƠI\n', size: 16 },
               { text: 'SẼ SỚM THAY ĐỔI HOÀN TOÀN.', bold: true, size: 16 },
             ]}
@@ -93,19 +104,20 @@ export default function UrgencyScreen() {
           />
         </Animated.View>
       </View>
-    </ChromaticGlassBackground>
+    </GrainBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 80,
   },
   clockWrapper: {
-    marginBottom: 40,
+    marginBottom: 50,
   },
   textBlock: {
     marginBottom: 28,

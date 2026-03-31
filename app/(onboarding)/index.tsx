@@ -66,7 +66,7 @@ export default function WelcomeScreen() {
 
         {/* Subtitle */}
         <Animated.Text style={[styles.subtitle, subtitleStyle]}>
-          HÀNH TRÌNH THĂNG CẤP CỦA BẠN{'\n'}BẮT ĐẦU TỪ ĐÂY.
+          HÀNH TRÌNH GLOWUP CỦA BẠN{'\n'}BẮT ĐẦU TỪ ĐÂY.
         </Animated.Text>
 
         {/* CTA */}

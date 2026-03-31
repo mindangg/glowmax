@@ -100,8 +100,9 @@ export default function AgeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 120,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: -120
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,

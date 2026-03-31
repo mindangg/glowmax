@@ -76,7 +76,8 @@ export default function GenderScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 120,
+    justifyContent: 'center',
+    marginTop: -100
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,

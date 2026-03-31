@@ -62,7 +62,7 @@ export default function GoalScreen() {
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
           <FrostedButton
             label="TIẾP TỤC"
-            onPress={() => router.push('/(onboarding)/experience')}
+            onPress={() => router.push('/(onboarding)/point')}
             disabled={!answers.goal}
           />
         </Animated.View>

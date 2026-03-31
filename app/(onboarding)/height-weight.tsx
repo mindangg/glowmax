@@ -13,6 +13,7 @@ import ScrollPicker from '../../components/ui/ScrollPicker';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { COLORS, FONTS } from '../../lib/constants';
+import GrainBackground from "../../components/backgrounds/GrainBackground";
 
 const CM_VALUES = Array.from({ length: 81 }, (_, i) => 140 + i); // 140-220
 const KG_VALUES = Array.from({ length: 121 }, (_, i) => 30 + i); // 30-150
@@ -40,11 +41,11 @@ export default function HeightWeightScreen() {
   const handleContinue = () => {
     setAnswer('heightCm', heightCm);
     setAnswer('weightKg', weightKg);
-    router.push('/(onboarding)/photo-tip');
+    router.push('/(onboarding)/point');
   };
 
   return (
-    <ChromaticGlassBackground>
+    <GrainBackground>
       <BackArrow />
       <View style={styles.container}>
         <Animated.Text style={[styles.title, titleStyle]}>
@@ -76,14 +77,15 @@ export default function HeightWeightScreen() {
           <FrostedButton label="TIẾP TỤC" onPress={handleContinue} />
         </Animated.View>
       </View>
-    </ChromaticGlassBackground>
+    </GrainBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 100,
+    justifyContent: 'center',
+    marginTop: -30
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,
@@ -95,10 +97,10 @@ const styles = StyleSheet.create({
   },
   pickers: {
     flexDirection: 'row',
-    flex: 1,
     paddingHorizontal: 24,
     marginTop: 32,
     gap: 16,
+    justifyContent: 'center',  // ← thêm cái này
   },
   pickerColumn: {
     flex: 1,
