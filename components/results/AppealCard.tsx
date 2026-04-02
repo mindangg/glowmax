@@ -1,150 +1,148 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { COLORS, FONTS } from '../../lib/constants';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, FONTS, getBarColor } from '../../lib/constants';
 
 interface Props {
   score: number | null;
-  rank: number | null;
-  totalUsers: number | null;
   locked: boolean;
 }
 
-function ScoreBar({ score }: { score: number }) {
-  const pct = Math.min(Math.max((score / 10) * 100, 0), 100);
-  return (
-    <View style={styles.barTrack}>
-      <View style={[styles.barFill, { width: `${pct}%` }]} />
-    </View>
-  );
+function getDate(): string {
+  const d = new Date();
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-export default function AppealCard({ score, rank, totalUsers, locked }: Props) {
+export default function AppealCard({ score, locked }: Props) {
+  const dateStr = getDate();
+
   if (locked) {
     return (
-      <Animated.View entering={FadeIn.duration(400)} style={styles.card}>
-        <View style={styles.lockBadge}>
-          <Text style={styles.lockIconText}>🔒</Text>
-        </View>
-        <View style={styles.lockedContent}>
-          <Text style={styles.lockLargeIcon}>🔒</Text>
+      <Animated.View entering={FadeIn.duration(400)} style={styles.cardLocked}>
+        <View style={styles.headerRow}>
           <Text style={styles.title}>APPEAL</Text>
-          <Text style={styles.lockedLabel}>ĐÃ KHÓA</Text>
+          <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.35)" />
+        </View>
+        <Text style={styles.dateText}>{dateStr}</Text>
+        <View style={styles.barTrack} />
+
+        {/* Large center lock icon */}
+        <View style={styles.lockedCenter}>
+          <Ionicons name="lock-closed" size={48} color="rgba(255,255,255,0.25)" />
         </View>
       </Animated.View>
     );
   }
 
+  const scoreInt = score != null ? Math.round(score) : 0;
+  const barColor = score != null ? getBarColor(score) : COLORS.ACCENT_GOLD;
+  const barPct = score != null ? Math.min(Math.max((score / 10) * 100, 0), 100) : 0;
+
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.card}>
-      <View style={styles.lockBadge}>
-        <Text style={styles.lockIconText}>🔓</Text>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>APPEAL</Text>
+        <Text style={styles.scoreLarge}>{scoreInt}</Text>
+      </View>
+      <Text style={styles.dateText}>{dateStr}</Text>
+
+      {/* Progress bar */}
+      <View style={styles.barTrack}>
+        <View style={[styles.barFill, { width: `${barPct}%`, backgroundColor: barColor }]} />
       </View>
 
-      <Text style={styles.title}>APPEAL</Text>
-      <Text style={styles.subtitle}>OVERALL FACE SCORE</Text>
-
-      <Text style={styles.scoreDisplay}>
-        {score != null ? score.toFixed(1) : '—'}/10
+      {/* Description */}
+      <Text style={styles.whatIsTitle}>WHAT IS APPEAL?</Text>
+      <Text style={styles.description}>
+        UNLIKE PSL (BASED ON PURE NUMBERS), APPEAL IS THE SUBCONSCIOUS, HOLISTIC IMPRESSION OF
+        FACIAL AESTHETICS & HEALTH BEYOND OBJECTIVE STRUCTURE.
       </Text>
-
-      {score != null && <ScoreBar score={score} />}
-
-      {rank != null && totalUsers != null && (
-        <View style={styles.rankContainer}>
-          <Text style={styles.rankText}>
-            BẠN ĐANG HẠNG {rank}/{totalUsers}
-          </Text>
-        </View>
-      )}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.BACKGROUND_ELEVATED,
-    borderRadius: 16,
-    padding: 24,
-    marginHorizontal: 20,
+    backgroundColor: 'rgba(28,18,2,0.88)',
+    borderRadius: 18,
+    padding: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    minHeight: 320,
-    alignItems: 'center',
+    borderColor: 'rgba(255,200,80,0.12)',
   },
-  lockBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 1,
+  cardLocked: {
+    backgroundColor: 'rgba(15,15,18,0.92)',
+    borderRadius: 18,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  lockIconText: {
-    fontSize: 18,
-  },
-  lockedContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  lockLargeIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  lockedLabel: {
-    fontFamily: FONTS.MONO,
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
-    letterSpacing: 2,
-    marginTop: 8,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 2,
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 22,
+    fontSize: 28,
     color: COLORS.TEXT_PRIMARY,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 4,
-    marginTop: 8,
+    flex: 1,
   },
-  subtitle: {
-    fontFamily: FONTS.MONO,
-    fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
-    letterSpacing: 1,
-    marginBottom: 20,
-  },
-  scoreDisplay: {
+  scoreLarge: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 48,
-    color: COLORS.ACCENT_GOLD,
-    marginBottom: 12,
+    fontSize: 28,
+    color: COLORS.TEXT_PRIMARY,
+    letterSpacing: 1,
+    marginLeft: 12,
+  },
+  dateText: {
+    fontFamily: FONTS.MONO,
+    fontSize: 11,
+    color: COLORS.TEXT_SECONDARY,
+    letterSpacing: 0.5,
+    marginBottom: 10,
   },
   barTrack: {
-    height: 4,
+    height: 6,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 2,
-    width: '100%',
-    marginBottom: 20,
+    borderRadius: 3,
     overflow: 'hidden',
+    marginBottom: 4,
   },
   barFill: {
     height: '100%',
-    backgroundColor: COLORS.ACCENT_GOLD,
-    borderRadius: 2,
+    borderRadius: 3,
   },
-  rankContainer: {
-    backgroundColor: 'rgba(232,197,111,0.12)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(232,197,111,0.2)',
-  },
-  rankText: {
+
+  // Unlocked description
+  whatIsTitle: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 16,
+    fontSize: 13,
     color: COLORS.TEXT_PRIMARY,
-    letterSpacing: 1,
+    letterSpacing: 2,
+    textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  description: {
+    fontFamily: FONTS.MONO,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    lineHeight: 18,
+    alignSelf: 'center',
+    maxWidth: '85%',
+  },
+
+  // Locked center
+  lockedCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
 });

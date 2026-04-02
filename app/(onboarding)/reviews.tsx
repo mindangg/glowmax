@@ -102,7 +102,7 @@ export default function ReviewsScreen() {
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
           <FrostedButton
             label="TIẾP TỤC"
-            onPress={() => router.push('/(onboarding)/height-weight')}
+            onPress={() => router.push('/(onboarding)/photo-tip')}
             disabled={!hasScrolled}
           />
         </Animated.View>

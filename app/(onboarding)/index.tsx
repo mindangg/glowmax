@@ -71,7 +71,7 @@ export default function WelcomeScreen() {
 
         {/* CTA */}
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
-          <FrostedButton label="BẮT ĐẦU NGAY" onPress={() => router.push('/(onboarding)/gender')} />
+          <FrostedButton label="BẮT ĐẦU NGAY" onPress={() => router.push('/(onboarding)/camera')} />
         </Animated.View>
 
         {/* Sign in link */}

@@ -1,13 +1,6 @@
 // Results Router (Phase 9)
 // Entry point after scan animation. Receives photoUri, triggers the appropriate
 // API call (trial or full), then renders results in-screen.
-//
-// NOTE: This file conflicts with results/index.tsx at the same route path
-// /(main)/results. Remove results/index.tsx if this file is preferred as the
-// single results entry point.
-//
-// Trial flow:  1st scan → calls trial-scan Edge Function → shows Appeal card + 9 locked
-// Paid flow:   calls analyze-face Edge Function → shows all 10 cards unlocked
 
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import {
@@ -18,13 +11,17 @@ import {
   Dimensions,
   ActivityIndicator,
   ViewToken,
+  Image,
+  StatusBar,
+  Pressable,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import * as FileSystem from 'expo-file-system/legacy';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import GrainBackground from '../../components/backgrounds/GrainBackground';
 import AppealCard from '../../components/results/AppealCard';
 import ResultCard from '../../components/results/ResultCard';
+import PSLCard from '../../components/results/PSLCard';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useTrialScan } from '../../hooks/useTrialScan';
@@ -33,13 +30,10 @@ import { COLORS, FONTS } from '../../lib/constants';
 import { RESULT_CATEGORIES_DATA } from '../../lib/metrics';
 import { ResultCategory } from '../../types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-const CATEGORY_ORDER: ResultCategory[] = [
-  'appeal', 'jaw', 'eyes', 'orbitals', 'zygos',
-  'harmony', 'nose', 'hair', 'ascension', 'leanmax',
-];
+type CarouselItem = 'psl' | ResultCategory;
 
 export default function ResultsRouter() {
   const router = useRouter();
@@ -52,6 +46,11 @@ export default function ResultsRouter() {
   const [activeIndex, setActiveIndex] = useState(0);
   const triggered = useRef(false);
 
+  // Build category order — PSL only for paid users
+  const CATEGORY_ORDER: CarouselItem[] = isPaid
+    ? ['psl', 'appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair', 'ascension', 'leanmax']
+    : ['appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair', 'ascension', 'leanmax'];
+
   // Trigger the appropriate API call once on mount
   useEffect(() => {
     if (triggered.current) return;
@@ -60,7 +59,6 @@ export default function ResultsRouter() {
     const run = async () => {
       setApiStatus('loading');
       try {
-        // Convert photoUri to base64 for the Edge Function
         let photoBase64 = '';
         if (photoUri) {
           try {
@@ -73,14 +71,11 @@ export default function ResultsRouter() {
         }
 
         if (isPaid) {
-          // Full analysis for paid users
           await triggerAnalysis(photoBase64);
         } else if (!isTrialUsed) {
-          // First-time trial scan
           await triggerTrialScan(photoBase64);
           markTrialUsed();
         }
-        // If trial already used and not paid: show all-locked state, no API call
         setApiStatus('done');
       } catch {
         setApiStatus('error');
@@ -100,54 +95,63 @@ export default function ResultsRouter() {
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  // Determine lock state per category
   const isCardLocked = useCallback(
-    (category: ResultCategory): boolean => {
+    (category: CarouselItem): boolean => {
       if (isPaid) return false;
-      // 1st trial scan just completed: unlock Appeal only
-      if (!isTrialUsed && category === 'appeal') return false;
-      // Trial already used before this scan: everything locked
-      return true;
+      // Trial users: everything is locked
+      return false;
     },
-    [isPaid, isTrialUsed]
+    [isPaid]
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ResultCategory }) => {
+    ({ item }: { item: CarouselItem }) => {
+      // PSL Card — only rendered for paid users, never locked
+      if (item === 'psl') {
+        const pslData = fullResults?.pslResult;
+        return (
+          <View style={{ width: CARD_WIDTH, paddingVertical: 10 }}>
+            <PSLCard
+              pslTier={pslData?.psl_tier ?? 'LTN'}
+              potentialTier={pslData?.potential_tier ?? 'HTN'}
+              date={pslData?.date ?? new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            />
+          </View>
+        );
+      }
+
       const locked = isCardLocked(item);
 
+      // Appeal Card
       if (item === 'appeal') {
+        const appealData = fullResults?.categories.find((r) => r.category === 'appeal');
         return (
-          <View style={{ width: CARD_WIDTH, paddingVertical: 20 }}>
+          <View style={{ width: CARD_WIDTH, paddingVertical: 10 }}>
             <AppealCard
-              score={
-                isPaid && fullResults
-                  ? fullResults.find((r) => r.category === 'appeal')?.overallScore ?? null
-                  : trialResult?.overall_score ?? null
-              }
-              rank={trialResult?.rank ?? null}
-              totalUsers={trialResult?.total_users ?? null}
+              score={isPaid && appealData ? appealData.overallScore : null}
               locked={locked}
             />
           </View>
         );
       }
 
+      // Result Cards
       const catData = RESULT_CATEGORIES_DATA.find((c) => c.category === item);
-      const fullData = fullResults?.find((r) => r.category === item);
+      const fullData = fullResults?.categories.find((r) => r.category === item);
 
       return (
-        <View style={{ width: CARD_WIDTH, paddingVertical: 20 }}>
+        <View style={{ width: CARD_WIDTH, paddingVertical: 10 }}>
           <ResultCard
             title={catData?.title ?? item.toUpperCase()}
             metrics={fullData?.metrics ?? []}
             overallScore={fullData?.overallScore ?? 0}
             locked={locked}
+            category={item}
           />
         </View>
       );
     },
-    [isCardLocked, isPaid, fullResults, trialResult]
+    [isCardLocked, isPaid, fullResults]
   );
 
   const handleCTA = () => {
@@ -161,67 +165,64 @@ export default function ResultsRouter() {
   // --- Loading state ---
   if (apiStatus === 'loading') {
     return (
-      <ChromaticGlassBackground>
+      <GrainBackground>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.ACCENT_GOLD} />
           <Animated.Text
             entering={FadeInDown.delay(300).duration(600)}
             style={styles.loadingText}
           >
-            ĐANG PHÂN TÍCH...
+            ANALYZING...
           </Animated.Text>
           <Text style={styles.loadingSubText}>
-            {isPaid ? 'PHÂN TÍCH ĐẦY ĐỦ 12+ CHỈ SỐ' : 'TÍNH ĐIỂM PSL CỦA BẠN'}
+            {isPaid ? 'FULL ANALYSIS 12+ METRICS' : 'CALCULATING YOUR PSL SCORE'}
           </Text>
         </View>
-      </ChromaticGlassBackground>
+      </GrainBackground>
     );
   }
 
   // --- Error state ---
   if (apiStatus === 'error') {
     return (
-      <ChromaticGlassBackground>
+      <GrainBackground>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorIcon}>⚠</Text>
-          <Text style={styles.errorText}>PHÂN TÍCH THẤT BẠI</Text>
-          <Text style={styles.errorSub}>Vui lòng thử lại.</Text>
+          <Text style={styles.errorText}>ANALYSIS FAILED</Text>
+          <Text style={styles.errorSub}>Please try again.</Text>
           <View style={{ marginTop: 24 }}>
-            <FrostedButton label="VỀ TRANG CHỦ" onPress={handleHome} variant="default" />
+            <FrostedButton label="GO HOME" onPress={handleHome} variant="default" />
           </View>
         </View>
-      </ChromaticGlassBackground>
+      </GrainBackground>
     );
   }
 
-  // --- Results state (done or idle = show whatever data exists) ---
+  // --- Results state ---
   return (
-    <ChromaticGlassBackground>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {/* Full-screen frontside photo background */}
+      {photoUri ? (
+        <Image
+          source={{ uri: photoUri }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#0A0C0E' }]} />
+      )}
+
+      {/* Dark gradient overlay — heavier at bottom where cards live */}
+      <View style={styles.overlayTop} />
+      <View style={styles.overlayBottom} />
+
       <View style={styles.container}>
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.header}>
-          <Text style={styles.headerTitle}>KẾT QUẢ CỦA BẠN</Text>
-          <Text style={styles.headerSub}>
-            {isPaid
-              ? 'PHÂN TÍCH ĐẦY ĐỦ'
-              : isTrialUsed
-              ? 'BẢN XEM TRƯỚC'
-              : 'TẤT CẢ BỊ KHÓA'}
-          </Text>
-        </Animated.View>
+        {/* Cards — pushed to bottom, photo visible above */}
+        <View style={{ flex: 1 }} />
 
-        {/* Ranking banner */}
-        {trialResult && (
-          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.rankBanner}>
-            <Text style={styles.rankBannerText}>
-              BẠN ĐANG HẠNG{' '}
-              <Text style={styles.rankBannerHighlight}>
-                {trialResult.rank}/{trialResult.total_users}
-              </Text>
-            </Text>
-          </Animated.View>
-        )}
-
-        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={{ flex: 1 }}>
+        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.cardsArea}>
           <FlatList
             data={CATEGORY_ORDER}
             renderItem={renderItem}
@@ -250,21 +251,43 @@ export default function ResultsRouter() {
         {/* CTAs */}
         <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.ctaWrapper}>
           {!isPaid ? (
-            <FrostedButton label="XEM KẾT QUẢ ĐẦY ĐỦ" onPress={handleCTA} variant="gold" />
+            <Pressable style={styles.seeFullResultsBtn} onPress={handleCTA}>
+              <Text style={styles.seeFullResultsText}>SEE FULL RESULTS</Text>
+            </Pressable>
           ) : (
-            <FrostedButton label="VỀ TRANG CHỦ" onPress={handleHome} variant="default" />
+            <FrostedButton label="GO HOME" onPress={handleHome} variant="default" />
           )}
         </Animated.View>
       </View>
-    </ChromaticGlassBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  overlayTop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    height: SCREEN_HEIGHT * 0.5,
+    bottom: undefined,
+  },
+  overlayBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: SCREEN_HEIGHT * 0.65,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
   container: {
     flex: 1,
-    paddingTop: 56,
     paddingBottom: 36,
+  },
+  cardsArea: {
+    height: 380,
   },
 
   // Loading / error
@@ -303,42 +326,6 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
   },
 
-  // Header
-  header: {
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingHorizontal: 24,
-  },
-  headerTitle: {
-    fontFamily: FONTS.MONO_BOLD,
-    fontSize: 26,
-    color: COLORS.TEXT_PRIMARY,
-    letterSpacing: 2,
-  },
-  headerSub: {
-    fontFamily: FONTS.MONO,
-    fontSize: 11,
-    color: COLORS.TEXT_SECONDARY,
-    letterSpacing: 2,
-    marginTop: 4,
-  },
-
-  // Rank banner
-  rankBanner: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  rankBannerText: {
-    fontFamily: FONTS.MONO,
-    fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
-    letterSpacing: 1.5,
-  },
-  rankBannerHighlight: {
-    color: COLORS.ACCENT_GOLD,
-    fontFamily: FONTS.MONO_BOLD,
-  },
-
   // Pagination
   dotsContainer: {
     flexDirection: 'row',
@@ -351,7 +338,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: {
     backgroundColor: COLORS.ACCENT_GOLD,
@@ -362,6 +349,22 @@ const styles = StyleSheet.create({
 
   // CTA
   ctaWrapper: {
-    marginTop: 20,
+    marginTop: 16,
+    paddingHorizontal: 20,
+  },
+
+  // "SEE FULL RESULTS" white pill button
+  seeFullResultsBtn: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 50,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  seeFullResultsText: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 14,
+    color: '#000',
+    letterSpacing: 1.5,
   },
 });

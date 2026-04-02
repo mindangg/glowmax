@@ -62,7 +62,7 @@ export default function GoalScreen() {
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
           <FrostedButton
             label="TIẾP TỤC"
-            onPress={() => router.push('/(onboarding)/point')}
+            onPress={() => router.push('/(onboarding)/experience')}
             disabled={!answers.goal}
           />
         </Animated.View>
@@ -74,7 +74,8 @@ export default function GoalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 120,
+    justifyContent: 'center',
+    marginTop: -90
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,

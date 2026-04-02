@@ -73,7 +73,8 @@ export default function ExperienceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 120,
+    justifyContent: 'center',
+    paddingTop: -50
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,

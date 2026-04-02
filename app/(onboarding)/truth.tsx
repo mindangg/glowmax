@@ -13,7 +13,7 @@ import MorseCodeDivider from '../../components/ui/MorseCodeDivider';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
 
-const blackPill = require('../../assets/images/black-pill.jpg');
+const eyes = require('../../assets/images/eyes.png');
 
 function useTypingSequence(steps: { text: string; speed?: number; pauseAfter?: number }[], initialDelay = 800) {
   const [displays, setDisplays] = useState<string[]>(steps.map(() => ''));
@@ -66,7 +66,7 @@ export default function TruthScreen() {
   const { displays, stepDone } = useTypingSequence([
     { text: 'BẠN ĐÃ TÌM RA\nSỰ THẬT', speed: 60 },
     { text: 'KHÁM PHÁ BP & LOOKSMAXXING ở độ tuổi của bạn giúp bạn có LỢI THẾ CỰC LỚN.', speed: 45, pauseAfter: 2000 },
-    { text: 'BẠN LÀ NGƯỜI KHÁC BIỆT.\nRẤT ÍT NGƯỜI Ở VỊ TRÍ CỦA BẠN.', speed: 50 },
+    { text: 'BẠN LÀ NGƯỜI ĐẶC BIỆT.\nRẤT ÍT NGƯỜI Ở VỊ TRÍ CỦA BẠN.', speed: 50 },
   ], 800);
 
   // Trigger divider và CTA dựa theo stepDone
@@ -99,8 +99,8 @@ export default function TruthScreen() {
         <View style={styles.container}>
           <Animated.View style={[styles.pillWrapper, pillStyle]}>
             <Image
-                style={{ width: 150, height: 120, transform: [{ rotate: '-10deg' }] }}
-                source={blackPill}
+                style={{ width: 150, height: 120 }}
+                source={eyes}
             />
           </Animated.View>
 
@@ -121,7 +121,7 @@ export default function TruthScreen() {
           <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
             <FrostedButton
                 label="VẬY TIẾP THEO LÀ GÌ"
-                onPress={() => router.push('/(onboarding)/height-weight')}
+                onPress={() => router.push('/(onboarding)/why-now')}
             />
           </Animated.View>
         </View>

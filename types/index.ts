@@ -39,8 +39,21 @@ export interface MetricScore {
   name: string;
   subtitle: string;
   score: number;
+  label?: string;
   description: string;
   tips: string[];
+  measurement?: number;
+  unit?: string;
+  idealRange?: string;
+  displayLabel?: string;
+}
+
+export type PSLTier = 'Sub 3' | 'Sub 5' | 'LTN' | 'MTN' | 'HTN' | 'Chang' | 'True Chang';
+
+export interface PSLResult {
+  psl_tier: PSLTier;
+  potential_tier: PSLTier;
+  date: string;
 }
 
 export interface ResultCategoryData {
@@ -50,7 +63,10 @@ export interface ResultCategoryData {
   overallScore: number;
 }
 
-export type FullAnalysisResult = ResultCategoryData[];
+export interface FullAnalysisResult {
+  pslResult: PSLResult;
+  categories: ResultCategoryData[];
+}
 
 export type ResultCategory =
   | 'appeal'

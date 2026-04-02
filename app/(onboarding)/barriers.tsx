@@ -63,7 +63,7 @@ export default function BarriersScreen() {
                 <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
                     <FrostedButton
                         label="TIẾP TỤC"
-                        onPress={() => router.push('/(onboarding)/barriers')}
+                        onPress={() => router.push('/(onboarding)/goal')}
                         disabled={!answers.experience}
                     />
                 </Animated.View>

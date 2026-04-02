@@ -85,7 +85,7 @@ export default function CategoryDetailScreen() {
     );
   }
 
-  const catData = results?.find((r) => r.category === (category as ResultCategory));
+  const catData = results?.categories.find((r) => r.category === (category as ResultCategory));
 
   // Appeal category gets special handling with rank
   const isAppeal = category === 'appeal';

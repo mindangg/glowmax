@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    marginTop: -30
+    marginTop: -70
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: 32,
     gap: 16,
-    justifyContent: 'center',  // ← thêm cái này
+    justifyContent: 'center',
   },
   pickerColumn: {
     flex: 1,
