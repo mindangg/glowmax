@@ -61,7 +61,7 @@ export default function CommitmentScreen() {
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
           <FrostedButton
             label="TIẾP TỤC"
-            onPress={() => router.push('/(onboarding)/urgency')}
+            onPress={() => router.push('/(onboarding)/reviews')}
             disabled={!answers.commitment}
           />
         </Animated.View>
@@ -73,7 +73,8 @@ export default function CommitmentScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 120,
+    justifyContent: 'center',
+    marginTop: -100,
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,

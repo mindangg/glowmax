@@ -1,18 +1,18 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, {useEffect} from 'react';
+import {StyleSheet, View} from 'react-native';
+import {useRouter} from 'expo-router';
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedStyle,
-  withTiming,
+  useSharedValue,
   withDelay,
   withSequence,
-  Easing,
+  withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import Svg, {Circle, Path} from 'react-native-svg';
+import GrainBackground from '../../components/backgrounds/GrainBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
-import { COLORS, FONTS } from '../../lib/constants';
+import {COLORS, FONTS} from '../../lib/constants';
 
 export default function CompleteScreen() {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function CompleteScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <ChromaticGlassBackground>
+    <GrainBackground>
       <View style={styles.container}>
         {/* Checkmark icon */}
         <Animated.View style={[styles.checkWrapper, checkStyle]}>
@@ -81,7 +81,7 @@ export default function CompleteScreen() {
           />
         </Animated.View>
       </View>
-    </ChromaticGlassBackground>
+    </GrainBackground>
   );
 }
 

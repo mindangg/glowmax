@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import GrainBackground from '../../components/backgrounds/GrainBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
 
@@ -65,7 +65,7 @@ export default function ReviewsScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <ChromaticGlassBackground iridescent>
+    <GrainBackground>
       <View style={styles.container}>
         {/* Review banner */}
         <Animated.View style={[styles.banner, bannerStyle]}>
@@ -102,12 +102,12 @@ export default function ReviewsScreen() {
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
           <FrostedButton
             label="TIẾP TỤC"
-            onPress={() => router.push('/(onboarding)/photo-tip')}
+            onPress={() => router.push('/(onboarding)/camera')}
             disabled={!hasScrolled}
           />
         </Animated.View>
       </View>
-    </ChromaticGlassBackground>
+    </GrainBackground>
   );
 }
 

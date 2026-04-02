@@ -1,13 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, getTierColor, getTierProgress } from '../../lib/constants';
 import { PSLTier } from '../../types';
 
 interface PSLCardProps {
-  pslTier: PSLTier;
-  potentialTier: PSLTier;
-  date: string;
+  pslTier?: PSLTier;
+  potentialTier?: PSLTier;
+  date?: string;
+  locked?: boolean;
 }
 
 function TierBar({ tier }: { tier: PSLTier }) {
@@ -20,9 +22,45 @@ function TierBar({ tier }: { tier: PSLTier }) {
   );
 }
 
-export default function PSLCard({ pslTier, potentialTier, date }: PSLCardProps) {
-  const pslColor = getTierColor(pslTier);
-  const potentialColor = getTierColor(potentialTier);
+function getDate(): string {
+  const d = new Date();
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+export default function PSLCard({ pslTier, potentialTier, date, locked }: PSLCardProps) {
+  const dateStr = date ?? getDate();
+
+  if (locked) {
+    return (
+      <Animated.View entering={FadeIn.duration(400)} style={styles.cardLocked}>
+        {/* PSL Section */}
+        <View style={styles.section}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>PSL</Text>
+            <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.35)" />
+          </View>
+          <Text style={styles.dateText}>{dateStr}</Text>
+          <View style={styles.barTrackLocked} />
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Potential Section */}
+        <View style={styles.section}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>POTENTIAL</Text>
+            <Ionicons name="lock-closed" size={16} color="rgba(255,255,255,0.35)" />
+          </View>
+          <Text style={styles.dateText}>{dateStr}</Text>
+          <View style={styles.barTrackLocked} />
+        </View>
+      </Animated.View>
+    );
+  }
+
+  const pslColor = getTierColor(pslTier ?? 'LTN');
+  const potentialColor = getTierColor(potentialTier ?? 'HTN');
   const isTrueChang = potentialTier === 'True Chang';
 
   return (
@@ -31,10 +69,10 @@ export default function PSLCard({ pslTier, potentialTier, date }: PSLCardProps) 
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>PSL</Text>
-          <Text style={[styles.tierLabel, { color: pslColor }]}>{pslTier.toUpperCase()}</Text>
+          <Text style={[styles.tierLabel, { color: pslColor }]}>{(pslTier ?? 'LTN').toUpperCase()}</Text>
         </View>
-        <Text style={styles.dateText}>{date}</Text>
-        <TierBar tier={pslTier} />
+        <Text style={styles.dateText}>{dateStr}</Text>
+        <TierBar tier={pslTier ?? 'LTN'} />
       </View>
 
       {/* Divider */}
@@ -51,11 +89,11 @@ export default function PSLCard({ pslTier, potentialTier, date }: PSLCardProps) 
               isTrueChang && styles.trueChangGlow,
             ]}
           >
-            {potentialTier.toUpperCase()}
+            {(potentialTier ?? 'HTN').toUpperCase()}
           </Text>
         </View>
-        <Text style={styles.dateText}>{date}</Text>
-        <TierBar tier={potentialTier} />
+        <Text style={styles.dateText}>{dateStr}</Text>
+        <TierBar tier={potentialTier ?? 'HTN'} />
       </View>
     </Animated.View>
   );
@@ -68,6 +106,13 @@ const styles = StyleSheet.create({
     padding: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,200,80,0.12)',
+  },
+  cardLocked: {
+    backgroundColor: 'rgba(15,15,18,0.92)',
+    borderRadius: 18,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   section: {},
   headerRow: {
@@ -109,6 +154,11 @@ const styles = StyleSheet.create({
   },
   barFill: {
     height: '100%',
+    borderRadius: 3,
+  },
+  barTrackLocked: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 3,
   },
   divider: {

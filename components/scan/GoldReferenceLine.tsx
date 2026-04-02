@@ -3,7 +3,7 @@ import { Dimensions, StyleSheet } from 'react-native';
 import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
 import { COLORS } from '../../lib/constants';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 interface GoldReferenceLineProps {
   yPosition: SharedValue<number>; // 0-1 fraction of screen height
@@ -11,7 +11,7 @@ interface GoldReferenceLineProps {
 
 export default function GoldReferenceLine({ yPosition }: GoldReferenceLineProps) {
   const animatedStyle = useAnimatedStyle(() => ({
-    top: `${yPosition.value * 100}%`,
+    top: yPosition.value * SCREEN_H,
   }));
 
   return (

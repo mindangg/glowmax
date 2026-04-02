@@ -124,21 +124,23 @@ export default function WhyNowScreen() {
           {/* Section 1: PHÁT TRIỂN XƯƠNG MẶT */}
           <Animated.View style={[styles.section, section1Style]}>
             <View style={styles.sectionRowEnd}>
-              <Text style={[styles.sectionTitle, { flex: 1 }]}>PHÁT TRIỂN XƯƠNG MẶT</Text>
-              {/* TODO: replace with skull image */}
+              <Text style={[styles.sectionTitle, { flex: 1, marginTop: 20 }]}>PHÁT TRIỂN XƯƠNG MẶT</Text>
               <View style={styles.placeholderSquare}>
                 <Image
                     style={{
                       width: 150,
                       height: 120,
                       backgroundColor: 'transparent',
+                      position: 'absolute',
+                      top: -55,
+                      left: -90,
                     }}
                     source={face}
                     resizeMode="contain"
                 />
               </View>
             </View>
-            <Text style={styles.sectionBody}>
+            <Text style={[styles.sectionBody, { marginTop: -15 }]}>
               TĂNG TRƯỞNG XƯƠNG PHÍA TRƯỚC & CÁC HALO KHUÔN MẶT KHÁC QUA CHẾ ĐỘ ĂN UỐNG, TẬP LUYỆN VÀ NGỦ TỐI ƯU
             </Text>
           </Animated.View>
@@ -211,7 +213,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 90,
   },
   heading: {
     fontFamily: FONTS.MONO_BOLD,
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 18,
+    fontSize: 23,
     color: COLORS.TEXT_PRIMARY,
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -256,10 +258,7 @@ const styles = StyleSheet.create({
   placeholderSquare: {
     width: 64,
     height: 64,
-    borderRadius: 4,
-    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-    borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -267,10 +266,7 @@ const styles = StyleSheet.create({
   placeholderTall: {
     width: 44,
     height: 80,
-    borderRadius: 4,
-    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-    borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
   },

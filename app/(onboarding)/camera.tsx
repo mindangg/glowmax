@@ -17,7 +17,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import GrainBackground from '../../components/backgrounds/GrainBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { usePhotoCapture } from '../../hooks/usePhotoCapture';
 import { COLORS, FONTS } from '../../lib/constants';
@@ -88,19 +88,19 @@ export default function CameraScreen() {
 
   if (!permission?.granted) {
     return (
-      <ChromaticGlassBackground>
+      <GrainBackground>
         <View style={styles.permissionContainer}>
           <Text style={styles.permissionText}>
             GLOWMAX CẦN QUYỀN TRUY CẬP CAMERA{'\n'}ĐỂ PHÂN TÍCH KHUÔN MẶT CỦA BẠN.
           </Text>
           <FrostedButton label="CẤP QUYỀN CAMERA" onPress={requestPermission} />
         </View>
-      </ChromaticGlassBackground>
+      </GrainBackground>
     );
   }
 
   return (
-    <ChromaticGlassBackground>
+    <GrainBackground>
       <Animated.View style={[styles.container, uiStyle]}>
 
         {/* Top section */}
@@ -193,7 +193,7 @@ export default function CameraScreen() {
         </View>
 
       </Animated.View>
-    </ChromaticGlassBackground>
+    </GrainBackground>
   );
 }
 

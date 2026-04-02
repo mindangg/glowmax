@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingTop: -50
+    marginTop: -90
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,

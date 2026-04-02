@@ -6,7 +6,7 @@ import { purchasePackage, restorePurchases as restoreRC } from '../lib/revenueCa
 const STORAGE_KEY = 'glowmax_subscription';
 
 export function useSubscription() {
-  const [isPaid, setIsPaid] = useState(false);
+  const [isPaid, setIsPaid] = useState(true); // DEV ONLY
   const [isTrialUsed, setIsTrialUsed] = useState(false);
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export function useSubscription() {
       if (stored) {
         try {
           const { isPaid: p, isTrialUsed: t } = JSON.parse(stored);
-          setIsPaid(p);
+          // DEV: setIsPaid(p);
           setIsTrialUsed(t);
         } catch {}
       }

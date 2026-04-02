@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { View, Image, StyleSheet, Dimensions, StatusBar } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import React, {useEffect, useState} from 'react';
+import {Dimensions, Image, StatusBar, StyleSheet, View} from 'react-native';
+import Animated, {useAnimatedStyle} from 'react-native-reanimated';
+import {useLocalSearchParams, useRouter} from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
-import { usePSLScanAnimation } from '../../hooks/usePSLScanAnimation';
+import {usePSLScanAnimation} from '../../hooks/usePSLScanAnimation';
 import ScanOverlay from '../../components/scan/ScanOverlay';
 import MetricCard from '../../components/scan/MetricCard';
 import GoldReferenceLine from '../../components/scan/GoldReferenceLine';
 import ScanProgressBar from '../../components/scan/ScanProgressBar';
-import { COLORS } from '../../lib/constants';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 

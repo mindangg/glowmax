@@ -139,16 +139,21 @@ export default function DeepTruthScreen() {
               <View style={styles.placeholderWatch}>
                 <Image
                     style={{
-                      width: 150,
-                      height: 120,
+                      width: 90,
+                      height: 70,
                       backgroundColor: 'transparent',
+                      position: 'absolute',
+                      top: -15,
+                      left: -215,
+                      opacity: 0.7,
+                      transform: [{ rotate: '-15deg' }]
                     }}
                     source={watch}
                     resizeMode="contain"
                 />
               </View>
             </View>
-            <Text style={styles.sectionBody}>
+            <Text style={[styles.sectionBody, { marginTop: -10 }]}>
               TRUNG BÌNH MỌI NGƯỜI KIẾM THÊM{' '}
               <Text style={styles.sectionBodyBold}>$500 NHIỀU HƠN</Text>
               {' '}CHO MỖI INCH CAO HƠN 6FT.
@@ -164,6 +169,11 @@ export default function DeepTruthScreen() {
                       width: 150,
                       height: 120,
                       backgroundColor: 'transparent',
+                      position: 'absolute',
+                      top: -40,
+                      left: 165,
+                      opacity: 0.5,
+
                     }}
                     source={lips}
                     resizeMode="contain"
@@ -217,7 +227,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 120,
   },
   heading: {
     fontFamily: FONTS.MONO_BOLD,
@@ -230,7 +240,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontFamily: FONTS.MONO,
-    fontSize: 14,
+    fontSize: 18,
     color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     marginBottom: 40,
@@ -252,7 +262,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 18,
+    fontSize: 23,
     color: COLORS.TEXT_PRIMARY,
     letterSpacing: 0.5,
     lineHeight: 26,
@@ -279,10 +289,7 @@ const styles = StyleSheet.create({
   placeholderWatch: {
     width: 60,
     height: 72,
-    borderRadius: 4,
-    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-    borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -290,10 +297,7 @@ const styles = StyleSheet.create({
   placeholderLips: {
     width: 64,
     height: 48,
-    borderRadius: 4,
-    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
-    borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

@@ -2,7 +2,7 @@ import React, { ReactNode } from 'react';
 import { View, ImageBackground, StyleSheet } from 'react-native';
 import { COLORS } from '../../lib/constants';
 
-const grainTexture = require('../../assets/images/grain-texture.png');
+const grainTexture = require('../../assets/images/trail.jpg');
 
 interface Props {
   children: ReactNode;

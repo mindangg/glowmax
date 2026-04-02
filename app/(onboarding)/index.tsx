@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import {View, Text, StyleSheet, Dimensions, Image} from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -11,6 +11,7 @@ import Animated, {
 import Svg, { Path, Circle } from 'react-native-svg';
 import GrainBackground from '../../components/backgrounds/GrainBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
+const logo = require('../../assets/images/logo.jpg');
 import { COLORS, FONTS } from '../../lib/constants';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -45,42 +46,40 @@ export default function WelcomeScreen() {
   return (
     <GrainBackground>
       <View style={styles.container}>
-        {/* Golden ratio / Fibonacci spiral overlay */}
-        <Animated.View style={[styles.spiralContainer, spiralStyle]}>
-          <Svg width={SW * 0.8} height={SW * 0.8} viewBox="0 0 200 200">
-            <Path
-              d="M100,100 Q100,20 180,20 Q180,100 100,100 Q60,100 60,140 Q60,160 80,160 Q100,160 100,140 Q100,130 90,130 Q85,130 85,135"
-              stroke="rgba(255,255,255,0.12)"
-              strokeWidth="1"
-              fill="none"
+
+        {/* Top: logo + title + subtitle */}
+        <View style={styles.topBlock}>
+          <Animated.View style={[styles.spiralContainer, spiralStyle]}>
+            <Image
+                source={logo}
+                style={{ width: 120, height: 120 }}
+                resizeMode="contain"
             />
-            <Circle cx="100" cy="100" r="80" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" fill="none" />
-            <Circle cx="100" cy="100" r="50" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" fill="none" />
-          </Svg>
-        </Animated.View>
+          </Animated.View>
 
-        {/* Title */}
-        <Animated.Text style={[styles.title, titleStyle]}>
-          CHÀO MỪNG!
-        </Animated.Text>
+          <Animated.Text style={[styles.title, titleStyle]}>
+            CHÀO MỪNG!
+          </Animated.Text>
 
-        {/* Subtitle */}
-        <Animated.Text style={[styles.subtitle, subtitleStyle]}>
-          HÀNH TRÌNH GLOWUP CỦA BẠN{'\n'}BẮT ĐẦU TỪ ĐÂY.
-        </Animated.Text>
+          <Animated.Text style={[styles.subtitle, subtitleStyle]}>
+            HÀNH TRÌNH GLOWUP CỦA BẠN{'\n'}BẮT ĐẦU TỪ ĐÂY.
+          </Animated.Text>
+        </View>
 
-        {/* CTA */}
-        <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
-          <FrostedButton label="BẮT ĐẦU NGAY" onPress={() => router.push('/(onboarding)/camera')} />
-        </Animated.View>
+        {/* Bottom: CTA + sign in */}
+        <View style={styles.bottomBlock}>
+          <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
+            <FrostedButton label="BẮT ĐẦU NGAY" onPress={() => router.push('/(onboarding)/reviews')} />
+          </Animated.View>
 
-        {/* Sign in link */}
-        <Animated.View style={[styles.linkWrapper, linkStyle]}>
-          <Text style={styles.linkText}>
-            ĐÃ CÓ TÀI KHOẢN?{' '}
-            <Text style={styles.linkUnderline}>ĐĂNG NHẬP</Text>
-          </Text>
-        </Animated.View>
+          <Animated.View style={[styles.linkWrapper, linkStyle]}>
+            <Text style={styles.linkText}>
+              ĐÃ CÓ TÀI KHOẢN?{' '}
+              <Text style={styles.linkUnderline}>ĐĂNG NHẬP</Text>
+            </Text>
+          </Animated.View>
+        </View>
+
       </View>
     </GrainBackground>
   );
@@ -89,21 +88,23 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: SH * 0.15,
+    paddingBottom: 52,
     paddingHorizontal: 24,
   },
+  topBlock: {
+    alignItems: 'center',
+  },
   spiralContainer: {
-    position: 'absolute',
-    top: SH * 0.1,
-    alignSelf: 'center',
+    marginBottom: 32,
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,
     fontSize: 36,
     color: COLORS.TEXT_PRIMARY,
     textAlign: 'center',
-    marginTop: SH * 0.25,
   },
   subtitle: {
     fontFamily: FONTS.MONO,
@@ -114,16 +115,15 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 1,
   },
+  bottomBlock: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 24,
+  },
   ctaWrapper: {
-    position: 'absolute',
-    bottom: 120,
-    left: 0,
-    right: 0,
+    width: '100%',
   },
-  linkWrapper: {
-    position: 'absolute',
-    bottom: 60,
-  },
+  linkWrapper: {},
   linkText: {
     fontFamily: FONTS.MONO,
     fontSize: 12,

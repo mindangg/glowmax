@@ -65,7 +65,7 @@ export default function TruthScreen() {
 
   const { displays, stepDone } = useTypingSequence([
     { text: 'BẠN ĐÃ TÌM RA\nSỰ THẬT', speed: 60 },
-    { text: 'KHÁM PHÁ BP & LOOKSMAXXING ở độ tuổi của bạn giúp bạn có LỢI THẾ CỰC LỚN.', speed: 45, pauseAfter: 2000 },
+    { text: 'KHÁM PHÁ LOOKSMAXXING ở độ tuổi của bạn giúp bạn có LỢI THẾ CỰC LỚN.', speed: 45, pauseAfter: 2000 },
     { text: 'BẠN LÀ NGƯỜI ĐẶC BIỆT.\nRẤT ÍT NGƯỜI Ở VỊ TRÍ CỦA BẠN.', speed: 50 },
   ], 800);
 
@@ -99,7 +99,7 @@ export default function TruthScreen() {
         <View style={styles.container}>
           <Animated.View style={[styles.pillWrapper, pillStyle]}>
             <Image
-                style={{ width: 150, height: 120 }}
+                style={{ width: 150, height: 120, opacity: 0.3 }}
                 source={eyes}
             />
           </Animated.View>

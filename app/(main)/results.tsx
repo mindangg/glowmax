@@ -31,7 +31,8 @@ import { RESULT_CATEGORIES_DATA } from '../../lib/metrics';
 import { ResultCategory } from '../../types';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 40;
+const CARD_GAP = 12;
+const CARD_WIDTH = SCREEN_WIDTH - 48;
 
 type CarouselItem = 'psl' | ResultCategory;
 
@@ -46,10 +47,10 @@ export default function ResultsRouter() {
   const [activeIndex, setActiveIndex] = useState(0);
   const triggered = useRef(false);
 
-  // Build category order — PSL only for paid users
-  const CATEGORY_ORDER: CarouselItem[] = isPaid
-    ? ['psl', 'appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair', 'ascension', 'leanmax']
-    : ['appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair', 'ascension', 'leanmax'];
+  // Build category order — PSL included for all users (locked for trial)
+  const CATEGORY_ORDER: CarouselItem[] = [
+    'psl', 'appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair', 'ascension', 'leanmax',
+  ];
 
   // Trigger the appropriate API call once on mount
   useEffect(() => {
@@ -99,22 +100,24 @@ export default function ResultsRouter() {
     (category: CarouselItem): boolean => {
       if (isPaid) return false;
       // Trial users: everything is locked
-      return false;
+      return true;
     },
     [isPaid]
   );
 
   const renderItem = useCallback(
     ({ item }: { item: CarouselItem }) => {
-      // PSL Card — only rendered for paid users, never locked
+      // PSL Card — shown for all users, locked for trial
       if (item === 'psl') {
+        const locked = isCardLocked(item);
         const pslData = fullResults?.pslResult;
         return (
-          <View style={{ width: CARD_WIDTH, paddingVertical: 10 }}>
+          <View style={{ width: CARD_WIDTH, paddingVertical: 10, marginHorizontal: CARD_GAP / 2 }}>
             <PSLCard
               pslTier={pslData?.psl_tier ?? 'LTN'}
               potentialTier={pslData?.potential_tier ?? 'HTN'}
               date={pslData?.date ?? new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              locked={locked}
             />
           </View>
         );
@@ -126,7 +129,7 @@ export default function ResultsRouter() {
       if (item === 'appeal') {
         const appealData = fullResults?.categories.find((r) => r.category === 'appeal');
         return (
-          <View style={{ width: CARD_WIDTH, paddingVertical: 10 }}>
+          <View style={{ width: CARD_WIDTH, paddingVertical: 10, marginHorizontal: CARD_GAP / 2 }}>
             <AppealCard
               score={isPaid && appealData ? appealData.overallScore : null}
               locked={locked}
@@ -140,7 +143,7 @@ export default function ResultsRouter() {
       const fullData = fullResults?.categories.find((r) => r.category === item);
 
       return (
-        <View style={{ width: CARD_WIDTH, paddingVertical: 10 }}>
+        <View style={{ width: CARD_WIDTH, paddingVertical: 10, marginHorizontal: CARD_GAP / 2 }}>
           <ResultCard
             title={catData?.title ?? item.toUpperCase()}
             metrics={fullData?.metrics ?? []}
@@ -230,9 +233,9 @@ export default function ResultsRouter() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            snapToInterval={CARD_WIDTH}
+            snapToInterval={CARD_WIDTH + CARD_GAP}
             decelerationRate="fast"
-            contentContainerStyle={{ paddingHorizontal: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 24 - CARD_GAP / 2 }}
             onViewableItemsChanged={onViewableChanged}
             viewabilityConfig={viewConfig}
           />
@@ -287,7 +290,7 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   cardsArea: {
-    height: 380,
+    height: SCREEN_HEIGHT * 0.52,
   },
 
   // Loading / error
