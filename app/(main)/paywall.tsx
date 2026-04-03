@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -8,30 +16,169 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
+import FrostedButton from '../../components/ui/FrostedButton';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useOnboarding } from '../../hooks/useOnboarding';
+import {
+  signInWithProvider,
+  upsertProfile,
+  checkUsernameAvailable,
+  getCurrentProfile,
+} from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../lib/constants';
+
+// ── Helpers (re-use from username screen) ─────────────────────────────────────
+
+const USERNAME_MIN = 3;
+const USERNAME_MAX = 30;
+
+function sanitise(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[^a-zA-Z0-9 ._\-àáâãèéêìíòóôõùúăđĩũơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹý]/g, '');
+}
+
+// ── Step type ─────────────────────────────────────────────────────────────────
+
+type Step = 'auth' | 'conflict' | 'purchase';
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function PaywallScreen() {
   const router = useRouter();
   const { purchaseWeekly, purchaseYearly, restorePurchases } = useSubscription();
+  const { answers } = useOnboarding();
+
+  const [step, setStep]               = useState<Step>('auth');
   const [selectedPlan, setSelectedPlan] = useState<'weekly' | 'yearly'>('yearly');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [initChecking, setInitChecking] = useState(true);
+
+  // Conflict-resolution state
+  const [conflictUsername, setConflictUsername] = useState('');
+  const [conflictChecking, setConflictChecking] = useState(false);
+  const [conflictError, setConflictError]       = useState('');
 
   const headerOpacity = useSharedValue(0);
-  const plansOpacity = useSharedValue(0);
-  const ctaOpacity = useSharedValue(0);
+  const plansOpacity  = useSharedValue(0);
+  const ctaOpacity    = useSharedValue(0);
 
-  useEffect(() => {
+  const animate = useCallback(() => {
     headerOpacity.value = withDelay(200, withTiming(1, { duration: 500 }));
-    plansOpacity.value = withDelay(500, withTiming(1, { duration: 500 }));
-    ctaOpacity.value = withDelay(800, withTiming(1, { duration: 500 }));
+    plansOpacity.value  = withDelay(500, withTiming(1, { duration: 500 }));
+    ctaOpacity.value    = withDelay(800, withTiming(1, { duration: 500 }));
   }, []);
 
+  useEffect(() => { animate(); }, []);
+
   const headerStyle = useAnimatedStyle(() => ({ opacity: headerOpacity.value }));
-  const plansStyle = useAnimatedStyle(() => ({ opacity: plansOpacity.value }));
-  const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
+  const plansStyle  = useAnimatedStyle(() => ({ opacity: plansOpacity.value }));
+  const ctaStyle    = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
+
+  // ── On mount: skip auth step if already signed in with real account ──────────
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && !user.is_anonymous) {
+        setStep('purchase');
+      }
+      setInitChecking(false);
+    })();
+  }, []);
+
+  // ── Auth step handlers ────────────────────────────────────────────────────────
+
+  const handleSignIn = async (provider: 'apple' | 'google') => {
+    setLoading(true);
+    const result = await signInWithProvider(provider);
+    setLoading(false);
+
+    if (!result.ok) {
+      Alert.alert('Đăng nhập thất bại', result.error);
+      return;
+    }
+
+    // After sign in, ensure there's a profile with a valid username.
+    await resolveProfile(result.linked);
+  };
+
+  /**
+   * After OAuth:
+   * - linked=true  → user_id unchanged, profile might already exist (from scan).
+   *   If no profile yet, create one from onboarding username.
+   * - linked=false → user_id switched to existing account. That account may
+   *   already have a profile. If not, create one from onboarding username.
+   *   If the onboarding username is taken, show conflict UI.
+   */
+  const resolveProfile = async (linked: boolean) => {
+    setLoading(true);
+
+    // Check for an existing profile on the (possibly new) account.
+    const existing = await getCurrentProfile();
+    if (existing) {
+      // Already has a profile — go straight to purchase.
+      setLoading(false);
+      setStep('purchase');
+      return;
+    }
+
+    // No profile yet — try to claim the username from onboarding.
+    const onboardingName = answers.username ? sanitise(String(answers.username)) : '';
+    if (onboardingName.length >= USERNAME_MIN) {
+      const profileResult = await upsertProfile(onboardingName);
+      setLoading(false);
+      if (profileResult.ok) {
+        setStep('purchase');
+        return;
+      }
+      // Username taken by someone else → show conflict resolution.
+      setConflictUsername(onboardingName);
+      setConflictError(profileResult.error ?? '');
+      setStep('conflict');
+      return;
+    }
+
+    // No valid onboarding username → show conflict UI to enter one.
+    setLoading(false);
+    setStep('conflict');
+  };
+
+  // ── Conflict resolution ───────────────────────────────────────────────────────
+
+  const handleConflictConfirm = async () => {
+    const value = sanitise(conflictUsername);
+    if (value.length < USERNAME_MIN) {
+      setConflictError(`Tên phải có ít nhất ${USERNAME_MIN} ký tự.`);
+      return;
+    }
+    if (value.length > USERNAME_MAX) {
+      setConflictError(`Tên không được vượt quá ${USERNAME_MAX} ký tự.`);
+      return;
+    }
+
+    setConflictChecking(true);
+    const available = await checkUsernameAvailable(value);
+    if (!available) {
+      setConflictChecking(false);
+      setConflictError('Tên này đã được sử dụng. Vui lòng chọn tên khác.');
+      return;
+    }
+
+    const result = await upsertProfile(value);
+    setConflictChecking(false);
+    if (!result.ok) {
+      setConflictError(result.error ?? 'Đã xảy ra lỗi.');
+      return;
+    }
+
+    setStep('purchase');
+  };
+
+  // ── Purchase handlers ─────────────────────────────────────────────────────────
 
   const handlePurchase = async () => {
     setLoading(true);
@@ -53,105 +200,203 @@ export default function PaywallScreen() {
     }
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  if (initChecking) {
+    return (
+      <TrailBackground>
+        <View style={styles.centered}>
+          <ActivityIndicator color={COLORS.ACCENT_GOLD} />
+        </View>
+      </TrailBackground>
+    );
+  }
+
   return (
-    <ChromaticGlassBackground>
+    <TrailBackground>
       <BackArrow />
       <View style={styles.container}>
-        {/* Header */}
-        <Animated.View style={[styles.header, headerStyle]}>
-          <Text style={styles.title}>MỞ KHÓA{'\n'}TOÀN BỘ KẾT QUẢ</Text>
-          <Text style={styles.subtitle}>
-            PHÂN TÍCH KHUÔN MẶT ĐẦY ĐỦ — 9 DANH MỤC CHI TIẾT
-          </Text>
-        </Animated.View>
 
-        {/* Features list */}
-        <Animated.View style={[styles.features, headerStyle]}>
-          {[
-            'PHÂN TÍCH 12+ CHỈ SỐ KHUÔN MẶT',
-            'ASCENSION PLAN CÁ NHÂN HÓA',
-            'LEANMAX PROTOCOL',
-            'QUÉT KHÔNG GIỚI HẠN',
-          ].map((feature, i) => (
-            <View key={i} style={styles.featureRow}>
-              <Text style={styles.checkmark}>✓</Text>
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-        </Animated.View>
+        {/* ── STEP: AUTH ─────────────────────────────────────────────────────── */}
+        {step === 'auth' && (
+          <>
+            <Animated.View style={[styles.header, headerStyle]}>
+              <Text style={styles.title}>TẠO TÀI KHOẢN{'\n'}ĐỂ MỞ KHÓA</Text>
+              <Text style={styles.subtitle}>
+                ĐĂNG NHẬP ĐỂ MUA GÓI VÀ ĐỒNG BỘ DỮ LIỆU CỦA BẠN
+              </Text>
+            </Animated.View>
 
-        {/* Plans */}
-        <Animated.View style={[styles.plans, plansStyle]}>
-          {/* Yearly */}
-          <TouchableOpacity
-            style={[styles.planCard, selectedPlan === 'yearly' && styles.planCardSelected]}
-            onPress={() => setSelectedPlan('yearly')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.bestValue}>
-              <Text style={styles.bestValueText}>GIÁ TỐT NHẤT</Text>
-            </View>
-            <Text style={[styles.planName, selectedPlan === 'yearly' && styles.planNameSelected]}>
-              GÓI NĂM
-            </Text>
-            <Text style={[styles.planPrice, selectedPlan === 'yearly' && styles.planPriceSelected]}>
-              TIẾT KIỆM 80%
-            </Text>
-            <View style={[styles.radio, selectedPlan === 'yearly' && styles.radioSelected]}>
-              {selectedPlan === 'yearly' && <View style={styles.radioDot} />}
-            </View>
-          </TouchableOpacity>
+            <Animated.View style={[styles.authButtons, ctaStyle]}>
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={() => handleSignIn('apple')}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.socialIcon}></Text>
+                <Text style={styles.socialLabel}>TIẾP TỤC VỚI APPLE</Text>
+              </TouchableOpacity>
 
-          {/* Weekly */}
-          <TouchableOpacity
-            style={[styles.planCard, selectedPlan === 'weekly' && styles.planCardSelected]}
-            onPress={() => setSelectedPlan('weekly')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.planName, selectedPlan === 'weekly' && styles.planNameSelected]}>
-              GÓI TUẦN
-            </Text>
-            <Text style={[styles.planPrice, selectedPlan === 'weekly' && styles.planPriceSelected]}>
-              THỬ LINH HOẠT
-            </Text>
-            <View style={[styles.radio, selectedPlan === 'weekly' && styles.radioSelected]}>
-              {selectedPlan === 'weekly' && <View style={styles.radioDot} />}
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={() => handleSignIn('google')}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.socialIcon}>G</Text>
+                <Text style={styles.socialLabel}>TIẾP TỤC VỚI GOOGLE</Text>
+              </TouchableOpacity>
 
-        {/* CTA */}
-        <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
-          <TouchableOpacity
-            onPress={handlePurchase}
-            disabled={loading}
-            activeOpacity={0.8}
-            style={styles.purchaseBtn}
-          >
-            <LinearGradient
-              colors={[COLORS.BUTTON_GRADIENT_START, COLORS.BUTTON_GRADIENT_END]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.purchaseGradient}
-            >
-              {loading ? (
-                <ActivityIndicator color="#1A1A1A" />
-              ) : (
-                <Text style={styles.purchaseLabel}>MỞ KHÓA NGAY</Text>
+              {loading && (
+                <ActivityIndicator color={COLORS.ACCENT_GOLD} style={{ marginTop: 16 }} />
               )}
-            </LinearGradient>
-          </TouchableOpacity>
+            </Animated.View>
+          </>
+        )}
 
-          <TouchableOpacity onPress={handleRestore} style={styles.restoreBtn}>
-            <Text style={styles.restoreText}>KHÔI PHỤC GÓI ĐÃ MUA</Text>
-          </TouchableOpacity>
-        </Animated.View>
+        {/* ── STEP: CONFLICT ─────────────────────────────────────────────────── */}
+        {step === 'conflict' && (
+          <>
+            <Animated.View style={[styles.header, headerStyle]}>
+              <Text style={styles.title}>CHỌN TÊN{'\n'}NGƯỜI DÙNG</Text>
+              <Text style={styles.subtitle}>
+                TÊN BẠN ĐÃ CHỌN TRƯỚC ĐÓ ĐÃ ĐƯỢC SỬ DỤNG.{'\n'}VUI LÒNG CHỌN TÊN MỚI.
+              </Text>
+            </Animated.View>
+
+            <Animated.View style={[styles.inputWrapper, plansStyle]}>
+              <TextInput
+                style={[styles.conflictInput, conflictError ? styles.conflictInputError : null]}
+                value={conflictUsername}
+                onChangeText={(t) => { setConflictUsername(t); setConflictError(''); }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={USERNAME_MAX + 5}
+                placeholder="tên mới của bạn"
+                placeholderTextColor="rgba(255,255,255,0.2)"
+                selectionColor={COLORS.ACCENT_GOLD}
+                autoFocus
+              />
+              {conflictError ? (
+                <Text style={styles.conflictErrorText}>{conflictError}</Text>
+              ) : null}
+            </Animated.View>
+
+            <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
+              <FrostedButton
+                label={conflictChecking ? 'ĐANG KIỂM TRA…' : 'XÁC NHẬN'}
+                onPress={handleConflictConfirm}
+                disabled={conflictChecking || sanitise(conflictUsername).length < USERNAME_MIN}
+              />
+            </Animated.View>
+          </>
+        )}
+
+        {/* ── STEP: PURCHASE ─────────────────────────────────────────────────── */}
+        {step === 'purchase' && (
+          <>
+            <Animated.View style={[styles.header, headerStyle]}>
+              <Text style={styles.title}>MỞ KHÓA{'\n'}TOÀN BỘ KẾT QUẢ</Text>
+              <Text style={styles.subtitle}>
+                PHÂN TÍCH KHUÔN MẶT ĐẦY ĐỦ — 9 DANH MỤC CHI TIẾT
+              </Text>
+            </Animated.View>
+
+            <Animated.View style={[styles.features, headerStyle]}>
+              {[
+                'PHÂN TÍCH 12+ CHỈ SỐ KHUÔN MẶT',
+                'ASCENSION PLAN CÁ NHÂN HÓA',
+                'LEANMAX PROTOCOL',
+                'QUÉT KHÔNG GIỚI HẠN',
+              ].map((feature, i) => (
+                <View key={i} style={styles.featureRow}>
+                  <Text style={styles.checkmark}>✓</Text>
+                  <Text style={styles.featureText}>{feature}</Text>
+                </View>
+              ))}
+            </Animated.View>
+
+            <Animated.View style={[styles.plans, plansStyle]}>
+              {/* Yearly */}
+              <TouchableOpacity
+                style={[styles.planCard, selectedPlan === 'yearly' && styles.planCardSelected]}
+                onPress={() => setSelectedPlan('yearly')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.bestValue}>
+                  <Text style={styles.bestValueText}>GIÁ TỐT NHẤT</Text>
+                </View>
+                <Text style={[styles.planName, selectedPlan === 'yearly' && styles.planNameSelected]}>
+                  GÓI NĂM
+                </Text>
+                <Text style={[styles.planPrice, selectedPlan === 'yearly' && styles.planPriceSelected]}>
+                  TIẾT KIỆM 80%
+                </Text>
+                <View style={[styles.radio, selectedPlan === 'yearly' && styles.radioSelected]}>
+                  {selectedPlan === 'yearly' && <View style={styles.radioDot} />}
+                </View>
+              </TouchableOpacity>
+
+              {/* Weekly */}
+              <TouchableOpacity
+                style={[styles.planCard, selectedPlan === 'weekly' && styles.planCardSelected]}
+                onPress={() => setSelectedPlan('weekly')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.planName, selectedPlan === 'weekly' && styles.planNameSelected]}>
+                  GÓI TUẦN
+                </Text>
+                <Text style={[styles.planPrice, selectedPlan === 'weekly' && styles.planPriceSelected]}>
+                  THỬ LINH HOẠT
+                </Text>
+                <View style={[styles.radio, selectedPlan === 'weekly' && styles.radioSelected]}>
+                  {selectedPlan === 'weekly' && <View style={styles.radioDot} />}
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+
+            <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
+              <TouchableOpacity
+                onPress={handlePurchase}
+                disabled={loading}
+                activeOpacity={0.8}
+                style={styles.purchaseBtn}
+              >
+                <LinearGradient
+                  colors={[COLORS.BUTTON_GRADIENT_START, COLORS.BUTTON_GRADIENT_END]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.purchaseGradient}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#1A1A1A" />
+                  ) : (
+                    <Text style={styles.purchaseLabel}>MỞ KHÓA NGAY</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleRestore} style={styles.restoreBtn}>
+                <Text style={styles.restoreText}>KHÔI PHỤC GÓI ĐÃ MUA</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </>
+        )}
+
       </View>
-    </ChromaticGlassBackground>
+    </TrailBackground>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     paddingTop: 100,
@@ -175,7 +420,68 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     letterSpacing: 0.5,
+    lineHeight: 18,
   },
+
+  // Auth step
+  authButtons: {
+    marginTop: 16,
+    gap: 14,
+    alignItems: 'center',
+  },
+  socialBtn: {
+    width: '100%',
+    height: 52,
+    backgroundColor: COLORS.GLASS_FILL,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  socialIcon: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 16,
+    color: COLORS.TEXT_PRIMARY,
+    width: 20,
+    textAlign: 'center',
+  },
+  socialLabel: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 13,
+    color: COLORS.TEXT_PRIMARY,
+    letterSpacing: 1,
+  },
+
+  // Conflict step
+  inputWrapper: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  conflictInput: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 28,
+    color: COLORS.TEXT_PRIMARY,
+    textAlign: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.ACCENT_GOLD,
+    paddingBottom: 8,
+    width: '90%',
+  },
+  conflictInputError: {
+    borderBottomColor: '#ff4d4d',
+  },
+  conflictErrorText: {
+    fontFamily: FONTS.MONO,
+    fontSize: 12,
+    color: '#ff4d4d',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+
+  // Purchase step
   features: {
     marginBottom: 32,
     gap: 12,
@@ -263,6 +569,8 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: COLORS.ACCENT_GOLD,
   },
+
+  // CTA (shared)
   ctaWrapper: {
     position: 'absolute',
     bottom: 60,

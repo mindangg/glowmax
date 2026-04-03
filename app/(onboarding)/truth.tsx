@@ -8,7 +8,7 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import MorseCodeDivider from '../../components/ui/MorseCodeDivider';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
@@ -95,7 +95,7 @@ export default function TruthScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-      <GrainBackground>
+      <TrailBackground>
         <View style={styles.container}>
           <Animated.View style={[styles.pillWrapper, pillStyle]}>
             <Image
@@ -125,7 +125,7 @@ export default function TruthScreen() {
             />
           </Animated.View>
         </View>
-      </GrainBackground>
+      </TrailBackground>
   );
 }
 

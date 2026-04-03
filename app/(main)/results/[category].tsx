@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import ChromaticGlassBackground from '../../../components/backgrounds/ChromaticGlassBackground';
+import TrailBackground from '../../../components/backgrounds/TrailBackground';
 import BackArrow from '../../../components/ui/BackArrow';
 import { useSubscription } from '../../../hooks/useSubscription';
 import { useFullAnalysis } from '../../../hooks/useFullAnalysis';
@@ -64,7 +64,7 @@ export default function CategoryDetailScreen() {
   // Redirect unpaid users to paywall
   if (!isPaid) {
     return (
-      <ChromaticGlassBackground>
+      <TrailBackground>
         <View style={styles.container}>
           <BackArrow onPress={() => router.back()} />
           <View style={styles.lockedContainer}>
@@ -81,7 +81,7 @@ export default function CategoryDetailScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </ChromaticGlassBackground>
+      </TrailBackground>
     );
   }
 
@@ -91,7 +91,7 @@ export default function CategoryDetailScreen() {
   const isAppeal = category === 'appeal';
 
   return (
-    <ChromaticGlassBackground>
+    <TrailBackground>
       <View style={styles.container}>
         <BackArrow onPress={() => router.back()} />
 
@@ -136,7 +136,7 @@ export default function CategoryDetailScreen() {
           )}
         </ScrollView>
       </View>
-    </ChromaticGlassBackground>
+    </TrailBackground>
   );
 }
 

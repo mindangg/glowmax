@@ -1,13 +1,18 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function BackArrow() {
+interface BackArrowProps {
+  onPress?: () => void;
+}
+
+export default function BackArrow({ onPress }: BackArrowProps) {
   const router = useRouter();
 
   return (
-    <TouchableOpacity onPress={() => router.back()} style={styles.container} hitSlop={16}>
-      <Text style={styles.arrow}>{'<'}</Text>
+    <TouchableOpacity onPress={onPress ?? (() => router.back())} style={styles.container} hitSlop={16}>
+      <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
     </TouchableOpacity>
   );
 }
@@ -18,10 +23,5 @@ const styles = StyleSheet.create({
     top: 56,
     left: 20,
     zIndex: 10,
-  },
-  arrow: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '300',
   },
 });

@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useOnboarding } from '../../hooks/useOnboarding';
@@ -55,7 +55,7 @@ export default function AgeScreen() {
   })();
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <BackArrow />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView
@@ -93,7 +93,7 @@ export default function AgeScreen() {
           </View>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

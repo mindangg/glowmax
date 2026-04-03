@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
 
@@ -45,7 +45,7 @@ export default function StatsScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <View style={styles.container}>
         <Animated.Text style={[styles.title, titleStyle]}>
           GLOWMAX{'\n'}BẰNG CON SỐ
@@ -67,7 +67,7 @@ export default function StatsScreen() {
           />
         </Animated.View>
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

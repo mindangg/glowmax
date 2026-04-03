@@ -1,7 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
+import { Dimensions } from 'react-native';
 import { CameraView } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
+
+const { width: SW, height: SH } = Dimensions.get('window');
+const VW = SW - 32;
+const VH = Math.min(VW * (4 / 3), SH - 148 - 136 - 92);
+const VIEWFINDER_RATIO = VW / VH; // width/height ≈ 0.765 (≈ 3:4 portrait)
 
 /**
  * Corrects photo orientation and optionally flips horizontally.
@@ -59,6 +65,45 @@ async function correctPhoto(
   }
 }
 
+/**
+ * Crops image to match the viewfinder aspect ratio (center crop).
+ * This ensures the saved photo matches exactly what was shown in the viewfinder.
+ */
+async function cropToViewfinderRatio(uri: string): Promise<string> {
+  try {
+    // Bake to get pixel dimensions
+    const info = await ImageManipulator.manipulateAsync(uri, [], {
+      compress: 1,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    const { width, height } = info;
+    const currentRatio = width / height;
+
+    if (Math.abs(currentRatio - VIEWFINDER_RATIO) < 0.02) return info.uri;
+
+    let cropW = width;
+    let cropH = height;
+    if (currentRatio > VIEWFINDER_RATIO) {
+      // Too wide → crop width
+      cropW = Math.round(height * VIEWFINDER_RATIO);
+    } else {
+      // Too tall → crop height
+      cropH = Math.round(width / VIEWFINDER_RATIO);
+    }
+    const ox = Math.floor((width - cropW) / 2);
+    const oy = Math.floor((height - cropH) / 2);
+
+    const cropped = await ImageManipulator.manipulateAsync(
+      info.uri,
+      [{ crop: { originX: ox, originY: oy, width: cropW, height: cropH } }],
+      { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    return cropped.uri;
+  } catch {
+    return uri;
+  }
+}
+
 export function usePhotoCapture() {
   const cameraRef = useRef<CameraView>(null);
   const [frontPhoto, setFrontPhoto] = useState<string | null>(null);
@@ -76,10 +121,11 @@ export function usePhotoCapture() {
     const orientation = (photo.exif as any)?.Orientation as number | undefined;
     // Front camera selfies are mirrored — flip horizontally to correct
     const correctedUri = await correctPhoto(photo.uri, orientation, true);
+    const croppedUri = await cropToViewfinderRatio(correctedUri);
 
     const filename = `${type}_photo_${Date.now()}.jpg`;
     const dest = FileSystem.documentDirectory + filename;
-    await FileSystem.copyAsync({ from: correctedUri, to: dest });
+    await FileSystem.copyAsync({ from: croppedUri, to: dest });
 
     if (type === 'front') {
       setFrontPhoto(dest);
@@ -96,10 +142,11 @@ export function usePhotoCapture() {
   const importPhoto = useCallback(async (uri: string, type: 'front' | 'side') => {
     // Gallery photos: correct orientation only, no mirror flip needed
     const correctedUri = await correctPhoto(uri);
+    const croppedUri = await cropToViewfinderRatio(correctedUri);
 
     const filename = `${type}_photo_${Date.now()}.jpg`;
     const dest = FileSystem.documentDirectory + filename;
-    await FileSystem.copyAsync({ from: correctedUri, to: dest });
+    await FileSystem.copyAsync({ from: croppedUri, to: dest });
     if (type === 'front') setFrontPhoto(dest);
     else setSidePhoto(dest);
   }, []);

@@ -1,6 +1,6 @@
 // Profile Screen (Phase 9)
 // Shows subscription status, manage plan, user stats.
-// Background B (ChromaticGlassBackground).
+// Background B (TrailBackground).
 
 import React, { useState, useCallback } from 'react';
 import {
@@ -15,7 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useTrialScan } from '../../hooks/useTrialScan';
@@ -72,7 +72,7 @@ export default function ProfileScreen() {
     subscriptionStatus === 'active' ? COLORS.ACCENT_GOLD : COLORS.TEXT_SECONDARY;
 
   return (
-    <ChromaticGlassBackground>
+    <TrailBackground>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <ScrollView
@@ -216,7 +216,7 @@ export default function ProfileScreen() {
           <Text style={styles.appInfoText}>React Native + Expo SDK 55</Text>
         </Animated.View>
       </ScrollView>
-    </ChromaticGlassBackground>
+    </TrailBackground>
   );
 }
 

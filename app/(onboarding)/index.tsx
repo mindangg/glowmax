@@ -9,9 +9,9 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import Svg, { Path, Circle } from 'react-native-svg';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
-const logo = require('../../assets/images/logo.jpg');
+const logo = require('../../assets/images/logo.png');
 import { COLORS, FONTS } from '../../lib/constants';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -44,7 +44,7 @@ export default function WelcomeScreen() {
   const linkStyle = useAnimatedStyle(() => ({ opacity: linkOpacity.value }));
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <View style={styles.container}>
 
         {/* Top: logo + title + subtitle */}
@@ -52,7 +52,7 @@ export default function WelcomeScreen() {
           <Animated.View style={[styles.spiralContainer, spiralStyle]}>
             <Image
                 source={logo}
-                style={{ width: 120, height: 120 }}
+                style={{ width: 200, height: 200 }}
                 resizeMode="contain"
             />
           </Animated.View>
@@ -69,7 +69,7 @@ export default function WelcomeScreen() {
         {/* Bottom: CTA + sign in */}
         <View style={styles.bottomBlock}>
           <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
-            <FrostedButton label="BẮT ĐẦU NGAY" onPress={() => router.push('/(onboarding)/reviews')} />
+            <FrostedButton label="BẮT ĐẦU NGAY" onPress={() => router.push('/(onboarding)/username')} />
           </Animated.View>
 
           <Animated.View style={[styles.linkWrapper, linkStyle]}>
@@ -81,7 +81,7 @@ export default function WelcomeScreen() {
         </View>
 
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

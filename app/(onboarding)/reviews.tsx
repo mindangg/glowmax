@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
 
@@ -65,7 +65,7 @@ export default function ReviewsScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <View style={styles.container}>
         {/* Review banner */}
         <Animated.View style={[styles.banner, bannerStyle]}>
@@ -107,7 +107,7 @@ export default function ReviewsScreen() {
           />
         </Animated.View>
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

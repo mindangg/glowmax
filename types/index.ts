@@ -10,6 +10,7 @@ export interface OnboardingAnswers {
   improvements: string[];
   hardmaxxing: boolean | null;
   motivation: string[];
+  username: string | null;
 }
 
 export interface ScanMetric {

@@ -16,6 +16,7 @@ const DEFAULT_ANSWERS: OnboardingAnswers = {
   improvements: [],
   hardmaxxing: null,
   motivation: [],
+  username: null,
 };
 
 export function useOnboarding() {

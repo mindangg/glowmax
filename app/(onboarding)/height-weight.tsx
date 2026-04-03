@@ -7,13 +7,12 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
 import ScrollPicker from '../../components/ui/ScrollPicker';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useOnboarding } from '../../hooks/useOnboarding';
 import { COLORS, FONTS } from '../../lib/constants';
-import GrainBackground from "../../components/backgrounds/GrainBackground";
 
 const CM_VALUES = Array.from({ length: 81 }, (_, i) => 140 + i); // 140-220
 const KG_VALUES = Array.from({ length: 121 }, (_, i) => 30 + i); // 30-150
@@ -45,7 +44,7 @@ export default function HeightWeightScreen() {
   };
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <BackArrow />
       <View style={styles.container}>
         <Animated.Text style={[styles.title, titleStyle]}>
@@ -77,7 +76,7 @@ export default function HeightWeightScreen() {
           <FrostedButton label="TIẾP TỤC" onPress={handleContinue} />
         </Animated.View>
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

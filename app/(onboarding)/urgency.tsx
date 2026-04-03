@@ -9,11 +9,10 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import Svg, { Rect, Circle, Line } from 'react-native-svg';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import MixedText from '../../components/ui/MixedText';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { COLORS, FONTS } from '../../lib/constants';
-import GrainBackground from "../../components/backgrounds/GrainBackground";
 
 const clock = require('../../assets/images/clock.png');
 
@@ -46,7 +45,7 @@ export default function UrgencyScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <View style={styles.container}>
 
         {/* First text block */}
@@ -96,7 +95,7 @@ export default function UrgencyScreen() {
           />
         </Animated.View>
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

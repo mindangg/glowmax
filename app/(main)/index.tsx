@@ -1,6 +1,6 @@
 // Home Screen (Phase 9)
 // Main hub after onboarding. Shows ranking, last scan score, and re-scan CTA.
-// Background B (ChromaticGlassBackground).
+// Background B (TrailBackground).
 
 import React, { useEffect } from 'react';
 import {
@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import ChromaticGlassBackground from '../../components/backgrounds/ChromaticGlassBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useTrialScan } from '../../hooks/useTrialScan';
@@ -39,6 +39,8 @@ export default function HomeScreen() {
     router.push('/(main)/results');
   };
 
+  const handleLeaderboard = () => { router.push(`/(main)/leaderboard?myRank=${rank}`); };
+
   const handleProfile = () => {
     router.push('/(main)/profile');
   };
@@ -54,7 +56,7 @@ export default function HomeScreen() {
     subscriptionStatus === 'active' ? COLORS.ACCENT_GOLD : 'rgba(255,255,255,0.4)';
 
   return (
-    <ChromaticGlassBackground>
+    <TrailBackground>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <ScrollView
@@ -89,6 +91,9 @@ export default function HomeScreen() {
                 <Text style={styles.rankTotal}>{totalUsers}</Text>
               </Text>
               <Text style={styles.rankSub}>BẠN ĐANG HẠNG {rank}/{totalUsers}</Text>
+              <TouchableOpacity onPress={handleLeaderboard} style={styles.leaderboardLink} activeOpacity={0.7}>
+                <Text style={styles.leaderboardLinkText}>XEM BẢNG XẾP HẠNG →</Text>
+              </TouchableOpacity>
             </LinearGradient>
           </Animated.View>
         ) : (
@@ -172,7 +177,7 @@ export default function HomeScreen() {
           )}
         </Animated.View>
       </ScrollView>
-    </ChromaticGlassBackground>
+    </TrailBackground>
   );
 }
 
@@ -283,6 +288,17 @@ const styles = StyleSheet.create({
     fontSize: 52,
     color: 'rgba(255,255,255,0.15)',
     lineHeight: 60,
+  },
+  leaderboardLink: {
+    marginTop: 12,
+    paddingVertical: 4,
+  },
+  leaderboardLinkText: {
+    fontFamily: FONTS.MONO,
+    fontSize: 11,
+    color: COLORS.ACCENT_GOLD,
+    letterSpacing: 2,
+    opacity: 0.8,
   },
 
   // Score card

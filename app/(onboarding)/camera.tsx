@@ -16,8 +16,8 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import Svg, {Rect, Circle, Path} from 'react-native-svg';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { usePhotoCapture } from '../../hooks/usePhotoCapture';
 import { COLORS, FONTS } from '../../lib/constants';
@@ -31,20 +31,6 @@ const BOTTOM_SECTION_H = 136; // dots + button + spacing
 const SAFE_H = 56 + 36;
 const VH = Math.min(VW * (4 / 3), SH - TOP_SECTION_H - BOTTOM_SECTION_H - SAFE_H);
 
-// Head silhouette path coords
-const cx = VW / 2;
-const hw = VW * 0.29;
-const topY = VH * 0.05;
-const midY = VH * 0.36;
-const botY = VH * 0.63;
-const HEAD_PATH = [
-  `M ${cx} ${topY}`,
-  `C ${cx + hw * 1.15} ${topY} ${cx + hw * 1.15} ${midY * 0.65} ${cx + hw} ${midY}`,
-  `C ${cx + hw * 0.95} ${botY * 0.88} ${cx + hw * 0.65} ${botY} ${cx} ${botY}`,
-  `C ${cx - hw * 0.65} ${botY} ${cx - hw * 0.95} ${botY * 0.88} ${cx - hw} ${midY}`,
-  `C ${cx - hw * 1.15} ${midY * 0.65} ${cx - hw * 1.15} ${topY} ${cx} ${topY}`,
-  'Z',
-].join(' ');
 
 export default function CameraScreen() {
   const router = useRouter();
@@ -74,7 +60,7 @@ export default function CameraScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [9, 16],
+      aspect: [3, 4],
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
@@ -88,44 +74,40 @@ export default function CameraScreen() {
 
   if (!permission?.granted) {
     return (
-      <GrainBackground>
+      <TrailBackground>
         <View style={styles.permissionContainer}>
           <Text style={styles.permissionText}>
             GLOWMAX CẦN QUYỀN TRUY CẬP CAMERA{'\n'}ĐỂ PHÂN TÍCH KHUÔN MẶT CỦA BẠN.
           </Text>
           <FrostedButton label="CẤP QUYỀN CAMERA" onPress={requestPermission} />
         </View>
-      </GrainBackground>
+      </TrailBackground>
     );
   }
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <Animated.View style={[styles.container, uiStyle]}>
 
         {/* Top section */}
         <View style={styles.topSection}>
-          <View style={styles.titleArea}>
-            <Text style={styles.title}>CHỤP ẢNH{'\n'}CHÍNH DIỆN</Text>
-            <View style={styles.badges}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeIcon}>🔒</Text>
-                <Text style={styles.badgeText}>BẢO MẬT 100%</Text>
-              </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeIcon}>✓</Text>
-                <Text style={styles.badgeText}>10,000+ LƯỢT ĐÁNH GIÁ</Text>
-              </View>
+          <Text style={styles.title}>CHỤP ẢNH{'\n'}CHÍNH DIỆN</Text>
+          <View style={styles.badges}>
+            <View style={styles.badge}>
+              <Svg width={13} height={13} viewBox="0 0 24 24">
+                <Rect x="3" y="11" width="18" height="11" rx="2" stroke="white" strokeWidth="2" fill="none" />
+                <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="white" strokeWidth="2" fill="none" />
+              </Svg>
+              <Text style={styles.badgeText}>BẢO MẬT 100%</Text>
+            </View>
+            <View style={styles.badge}>
+              <Svg width={13} height={13} viewBox="0 0 24 24">
+                <Circle cx="12" cy="12" r="10" stroke="white" strokeWidth="2" fill="none" />
+                <Path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+              <Text style={styles.badgeText}>10,000+ LƯỢT ĐÁNH GIÁ</Text>
             </View>
           </View>
-
-          {/* Flip camera button */}
-          <TouchableOpacity
-            style={styles.flipBtn}
-            onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')}
-          >
-            <Text style={styles.flipBtnText}>↻</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Viewfinder */}
@@ -143,11 +125,11 @@ export default function CameraScreen() {
 
           {/* Head silhouette overlay */}
           {!frontPhoto && (
-            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-              <Svg width={VW} height={VH}>
-                <Path d={HEAD_PATH} fill="rgba(255,255,255,0.20)" />
-              </Svg>
-            </View>
+            <Image
+              source={require('../../assets/images/front1.png')}
+              style={styles.silhouetteOverlay}
+              resizeMode="contain"
+            />
           )}
 
           {/* Gallery icon — bottom-left corner */}
@@ -163,6 +145,16 @@ export default function CameraScreen() {
                   strokeLinecap="round" strokeLinejoin="round"
                   fill="none" opacity={0.85}
                 />
+              </Svg>
+            </TouchableOpacity>
+          )}
+
+          {/* Flip camera button — bottom-right corner */}
+          {!frontPhoto && (
+            <TouchableOpacity style={styles.flipViewfinderBtn} onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')}>
+              <Svg width={28} height={28} viewBox="0 0 24 24">
+                <Path d="M1 4v6h6" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+                <Path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
               </Svg>
             </TouchableOpacity>
           )}
@@ -193,7 +185,7 @@ export default function CameraScreen() {
         </View>
 
       </Animated.View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 
@@ -220,58 +212,35 @@ const styles = StyleSheet.create({
 
   // Top section
   topSection: {
-    flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  titleArea: {
-    flex: 1,
-    alignItems: 'center',
-  },
   title: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 18,
+    fontSize: 22,
     color: COLORS.TEXT_PRIMARY,
     textAlign: 'center',
     letterSpacing: 1,
-    lineHeight: 26,
-    marginBottom: 10,
+    lineHeight: 32,
+    marginBottom: 12,
   },
   badges: {
-    flexDirection: 'row',
-    gap: 16,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-  },
-  badgeIcon: {
-    fontSize: 11,
-    color: COLORS.ACCENT_GOLD,
+    gap: 7,
   },
   badgeText: {
     fontFamily: FONTS.MONO,
-    fontSize: 9,
-    color: COLORS.MUTED_GRAY,
-    letterSpacing: 0.5,
-  },
-
-  // Flip button
-  flipBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  flipBtnText: {
-    fontSize: 22,
+    fontSize: 11,
     color: COLORS.TEXT_PRIMARY,
-    lineHeight: 26,
+    letterSpacing: 0.5,
+    opacity: 0.75,
   },
 
   // Viewfinder
@@ -307,6 +276,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 14,
     left: 14,
+    padding: 4,
+  },
+
+  // Silhouette
+  silhouetteOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: VW,
+    height: VH,
+    opacity: 0.65,
+    tintColor: '#ffffff',
+  },
+
+  // Flip camera (inside viewfinder)
+  flipViewfinderBtn: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
     padding: 4,
   },
 

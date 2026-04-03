@@ -7,7 +7,7 @@ import Animated, {
     withTiming,
     withDelay,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
 import OptionCard from '../../components/ui/OptionCard';
 import FrostedButton from '../../components/ui/FrostedButton';
@@ -40,11 +40,11 @@ export default function PointScreen() {
     const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
     return (
-        <GrainBackground>
+        <TrailBackground>
             <BackArrow />
             <View style={styles.container}>
                 <Animated.Text style={[styles.title, titleStyle]}>
-                    BẠN NGHĨ MÌNH CÒN{'\n'} CÁCH MỨC XẾP HẠNG PSL{'\n'} TIỀM NĂNG BAO NHIÊU ĐIỂM?
+                    BẠN NGHĨ MÌNH HIỆN TẠI{'\n'}CÓ TIỀM NĂNG LỚN KHÔNG?
                 </Animated.Text>
 
                 <Animated.View style={optionsStyle}>
@@ -66,7 +66,7 @@ export default function PointScreen() {
                     />
                 </Animated.View>
             </View>
-        </GrainBackground>
+        </TrailBackground>
     );
 }
 
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         color: COLORS.TEXT_PRIMARY,
         textAlign: 'center',
-        marginBottom: 32,
+        marginBottom: 45,
         letterSpacing: 1,
     },
     ctaWrapper: {

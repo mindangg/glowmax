@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
 import OptionCard from '../../components/ui/OptionCard';
 import FrostedButton from '../../components/ui/FrostedButton';
@@ -41,7 +41,7 @@ export default function GenderScreen() {
   };
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <BackArrow />
       <View style={styles.container}>
         <Animated.Text style={[styles.title, titleStyle]}>
@@ -69,7 +69,7 @@ export default function GenderScreen() {
           />
         </Animated.View>
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 

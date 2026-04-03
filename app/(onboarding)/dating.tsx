@@ -7,7 +7,7 @@ import Animated, {
     withTiming,
     withDelay,
 } from 'react-native-reanimated';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
 import OptionCard from '../../components/ui/OptionCard';
 import FrostedButton from '../../components/ui/FrostedButton';
@@ -39,11 +39,11 @@ export default function DatingScreen() {
     const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
     return (
-        <GrainBackground>
+        <TrailBackground>
             <BackArrow />
             <View style={styles.container}>
                 <Animated.Text style={[styles.title, titleStyle]}>
-                    GIỮA CHÚNG TA VỚI{'\n'} NHAU THÔI, ĐỜI SỐNG HẸN HÒ CỦA BẠN THẾ NÀO?
+                    GIỮA CHÚNG TA VỚI{'\n'} NHAU THÔI, ĐỜI SỐNG HẸN{'\n'} HÒ CỦA BẠN THẾ NÀO?
                 </Animated.Text>
 
                 <Animated.View style={optionsStyle}>
@@ -65,7 +65,7 @@ export default function DatingScreen() {
                     />
                 </Animated.View>
             </View>
-        </GrainBackground>
+        </TrailBackground>
     );
 }
 
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         color: COLORS.TEXT_PRIMARY,
         textAlign: 'center',
-        marginBottom: 32,
+        marginBottom: 40,
         letterSpacing: 1,
     },
     ctaWrapper: {

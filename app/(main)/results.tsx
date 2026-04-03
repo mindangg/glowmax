@@ -14,11 +14,13 @@ import {
   Image,
   StatusBar,
   Pressable,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import * as FileSystem from 'expo-file-system/legacy';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import AppealCard from '../../components/results/AppealCard';
 import ResultCard from '../../components/results/ResultCard';
 import PSLCard from '../../components/results/PSLCard';
@@ -26,6 +28,8 @@ import FrostedButton from '../../components/ui/FrostedButton';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useTrialScan } from '../../hooks/useTrialScan';
 import { useFullAnalysis } from '../../hooks/useFullAnalysis';
+import { useLeaderboard } from '../../hooks/useLeaderboard';
+import { useOnboarding } from '../../hooks/useOnboarding';
 import { COLORS, FONTS } from '../../lib/constants';
 import { RESULT_CATEGORIES_DATA } from '../../lib/metrics';
 import { ResultCategory } from '../../types';
@@ -42,10 +46,15 @@ export default function ResultsRouter() {
   const { isPaid, isTrialUsed, markTrialUsed } = useSubscription();
   const { triggerTrialScan, trialResult } = useTrialScan();
   const { triggerAnalysis, results: fullResults } = useFullAnalysis();
+  const { submitScore } = useLeaderboard();
+  const { answers } = useOnboarding();
 
   const [apiStatus, setApiStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [activeIndex, setActiveIndex] = useState(0);
   const triggered = useRef(false);
+  const [showRankModal, setShowRankModal] = useState(false);
+  const [rankSubmitted, setRankSubmitted] = useState(false);
+  const [myRank, setMyRank] = useState<{ rank: number; total_users: number } | null>(null);
 
   // Build category order — PSL included for all users (locked for trial)
   const CATEGORY_ORDER: CarouselItem[] = [
@@ -85,6 +94,20 @@ export default function ResultsRouter() {
 
     run();
   }, []);
+
+  useEffect(() => {
+    if (apiStatus !== 'done' || rankSubmitted) return;
+    const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+    const username = answers.username ?? 'anonymous';
+    if (!isPaid) {
+      // Free: always public, no modal
+      setRankSubmitted(true);
+      submitScore(score, username, true).then(r => { if (r) setMyRank(r); });
+    } else {
+      // Paid: show modal
+      setShowRankModal(true);
+    }
+  }, [apiStatus]);
 
   const onViewableChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -168,7 +191,7 @@ export default function ResultsRouter() {
   // --- Loading state ---
   if (apiStatus === 'loading') {
     return (
-      <GrainBackground>
+      <TrailBackground>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.ACCENT_GOLD} />
           <Animated.Text
@@ -181,14 +204,14 @@ export default function ResultsRouter() {
             {isPaid ? 'FULL ANALYSIS 12+ METRICS' : 'CALCULATING YOUR PSL SCORE'}
           </Text>
         </View>
-      </GrainBackground>
+      </TrailBackground>
     );
   }
 
   // --- Error state ---
   if (apiStatus === 'error') {
     return (
-      <GrainBackground>
+      <TrailBackground>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorIcon}>⚠</Text>
           <Text style={styles.errorText}>ANALYSIS FAILED</Text>
@@ -197,7 +220,7 @@ export default function ResultsRouter() {
             <FrostedButton label="GO HOME" onPress={handleHome} variant="default" />
           </View>
         </View>
-      </GrainBackground>
+      </TrailBackground>
     );
   }
 
@@ -217,14 +240,7 @@ export default function ResultsRouter() {
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#0A0C0E' }]} />
       )}
 
-      {/* Dark gradient overlay — heavier at bottom where cards live */}
-      <View style={styles.overlayTop} />
-      <View style={styles.overlayBottom} />
-
       <View style={styles.container}>
-        {/* Cards — pushed to bottom, photo visible above */}
-        <View style={{ flex: 1 }} />
-
         <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.cardsArea}>
           <FlatList
             data={CATEGORY_ORDER}
@@ -260,8 +276,52 @@ export default function ResultsRouter() {
           ) : (
             <FrostedButton label="GO HOME" onPress={handleHome} variant="default" />
           )}
+          {myRank !== null && (
+            <TouchableOpacity
+              style={styles.leaderboardBtn}
+              onPress={() => router.push(`/(main)/leaderboard?myRank=${myRank.rank}`)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.leaderboardBtnText}>XEM BẢNG XẾP HẠNG →</Text>
+            </TouchableOpacity>
+          )}
         </Animated.View>
       </View>
+
+      <Modal visible={showRankModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>CÔNG KHAI RANK?</Text>
+            <Text style={styles.modalSub}>
+              Bạn có muốn hiển thị rank của mình trên bảng xếp hạng không?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={() => {
+                  setShowRankModal(false);
+                  setRankSubmitted(true);
+                  const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+                  submitScore(score, answers.username ?? 'anonymous', true).then(r => { if (r) setMyRank(r); });
+                }}
+              >
+                <Text style={styles.modalBtnTextPrimary}>CÓ, CÔNG KHAI</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalBtn}
+                onPress={() => {
+                  setShowRankModal(false);
+                  setRankSubmitted(true);
+                  const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+                  submitScore(score, answers.username ?? 'anonymous', false).then(r => { if (r) setMyRank(r); });
+                }}
+              >
+                <Text style={styles.modalBtnText}>GIỮ RIÊNG TƯ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -271,23 +331,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  overlayTop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    height: SCREEN_HEIGHT * 0.5,
-    bottom: undefined,
-  },
-  overlayBottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: SCREEN_HEIGHT * 0.65,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
   container: {
     flex: 1,
     paddingBottom: 36,
+    justifyContent: 'center',
   },
   cardsArea: {
     height: SCREEN_HEIGHT * 0.52,
@@ -369,5 +416,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000',
     letterSpacing: 1.5,
+  },
+
+  // Leaderboard button
+  leaderboardBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  leaderboardBtnText: {
+    fontFamily: FONTS.MONO,
+    fontSize: 12,
+    color: COLORS.ACCENT_GOLD,
+    letterSpacing: 1.5,
+    opacity: 0.85,
+  },
+
+  // Rank modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: 'rgba(26,30,34,0.97)',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 12,
+  },
+  modalTitle: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 20,
+    color: COLORS.TEXT_PRIMARY,
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  modalSub: {
+    fontFamily: FONTS.MONO,
+    fontSize: 13,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalButtons: {
+    gap: 10,
+    marginTop: 8,
+  },
+  modalBtn: {
+    borderRadius: 50,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  modalBtnPrimary: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderColor: 'transparent',
+  },
+  modalBtnTextPrimary: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 13,
+    color: '#000',
+    letterSpacing: 1.5,
+  },
+  modalBtnText: {
+    fontFamily: FONTS.MONO,
+    fontSize: 13,
+    color: COLORS.TEXT_SECONDARY,
+    letterSpacing: 1,
   },
 });

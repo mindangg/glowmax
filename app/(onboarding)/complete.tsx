@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, {Circle, Path} from 'react-native-svg';
-import GrainBackground from '../../components/backgrounds/GrainBackground';
+import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import {COLORS, FONTS} from '../../lib/constants';
 
@@ -43,7 +43,7 @@ export default function CompleteScreen() {
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value }));
 
   return (
-    <GrainBackground>
+    <TrailBackground>
       <View style={styles.container}>
         {/* Checkmark icon */}
         <Animated.View style={[styles.checkWrapper, checkStyle]}>
@@ -77,11 +77,11 @@ export default function CompleteScreen() {
           <FrostedButton
             label="BẮT ĐẦU QUÉT PSL"
             variant="gold"
-            onPress={() => router.replace('/(main)/scan')}
+            onPress={() => router.push('/(onboarding)/username')}
           />
         </Animated.View>
       </View>
-    </GrainBackground>
+    </TrailBackground>
   );
 }
 
