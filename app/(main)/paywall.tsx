@@ -187,7 +187,7 @@ export default function PaywallScreen() {
       : await purchaseYearly();
     setLoading(false);
     if (result.success) {
-      router.replace('/(main)/scan');
+      router.replace('/(premium)/scan');
     }
   };
 
@@ -196,7 +196,7 @@ export default function PaywallScreen() {
     const result = await restorePurchases();
     setLoading(false);
     if (result.restored) {
-      router.replace('/(main)/scan');
+      router.replace('/(premium)/scan');
     }
   };
 

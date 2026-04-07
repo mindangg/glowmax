@@ -39,7 +39,10 @@ export function usePSLScanAnimation() {
     );
 
     // First metric progress
-    progress.value = withTiming(1 / SCAN_METRICS.length, { duration: 500 });
+    progress.value = withTiming(1 / SCAN_METRICS.length, {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
 
     const advance = () => {
       indexRef.current += 1;
@@ -63,7 +66,8 @@ export function usePSLScanAnimation() {
 
       // Progress advances
       progress.value = withTiming(indexRef.current / SCAN_METRICS.length, {
-        duration: 500,
+        duration: 700,
+        easing: Easing.out(Easing.cubic),
       });
 
       timerRef.current = setTimeout(advance, METRIC_DURATION);

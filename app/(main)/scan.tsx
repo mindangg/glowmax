@@ -74,7 +74,7 @@ export default function ScanScreen() {
         <Image
           source={{ uri: photoUri }}
           style={styles.backgroundPhoto}
-          resizeMode="contain"
+          resizeMode="cover"
         />
       ) : (
         <View style={[styles.backgroundPhoto, styles.fallbackBg]} />

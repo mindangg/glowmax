@@ -150,7 +150,7 @@ export default function UsernameScreen() {
       return;
     }
     setAnswer('username', result.value);
-    router.push('/(onboarding)/age');
+    router.push('/(onboarding)/camera');
   };
 
   // Button enabled when length ok AND not taken (checking = optimistic allow,

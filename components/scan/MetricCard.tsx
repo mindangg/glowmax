@@ -27,7 +27,7 @@ function BustIcon({ highlightArea }: { highlightArea: ScanMetric['bustHighlightA
     highlightArea === area || highlightArea === 'full' ? gold : base;
 
   return (
-    <Svg width={44} height={44} viewBox="0 0 48 48">
+    <Svg width={56} height={56} viewBox="0 0 48 48">
       {/* Head outline */}
       <Ellipse cx={24} cy={18} rx={11} ry={14} fill="none" stroke={base} strokeWidth={1.2} />
       {/* Neck + shoulders */}
@@ -61,19 +61,22 @@ function BustIcon({ highlightArea }: { highlightArea: ScanMetric['bustHighlightA
       {(highlightArea === 'chin' || highlightArea === 'full') && (
         <Circle cx={24} cy={30} r={4} fill="none" stroke={gold} strokeWidth={1} opacity={0.7} />
       )}
+      {/* Gold crosshair at nose bridge — always visible */}
+      <Line x1={20} y1={19} x2={28} y2={19} stroke={gold} strokeWidth={1.4} />
+      <Line x1={24} y1={15} x2={24} y2={23} stroke={gold} strokeWidth={1.4} />
     </Svg>
   );
 }
 
-// Animated CALCULATING... text with cycling dots
+// Animated CALCULATING... text
 function CalculatingText() {
   const dotOpacity = useSharedValue(0);
 
   useEffect(() => {
     dotOpacity.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 400 }),
-        withTiming(0.2, { duration: 400 }),
+        withTiming(1, { duration: 500 }),
+        withTiming(0.15, { duration: 500 }),
       ),
       -1,
       true,
@@ -90,8 +93,8 @@ function CalculatingText() {
         style={{
           fontFamily: FONTS.MONO,
           fontSize: 12,
-          color: 'rgba(255,255,255,0.3)',
-          letterSpacing: 2,
+          color: 'rgba(255,255,255,0.28)',
+          letterSpacing: 2.5,
         }}
       >
         CALCULATING
@@ -101,8 +104,8 @@ function CalculatingText() {
           {
             fontFamily: FONTS.MONO,
             fontSize: 12,
-            color: 'rgba(255,255,255,0.3)',
-            letterSpacing: 2,
+            color: 'rgba(255,255,255,0.28)',
+            letterSpacing: 2.5,
           },
           animatedStyle,
         ]}
@@ -117,20 +120,21 @@ export default function MetricCard({ currentMetric, metricIndex }: MetricCardPro
   return (
     <Animated.View
       key={`metric-${metricIndex}`}
-      entering={FadeIn.duration(250)}
-      exiting={FadeOut.duration(150)}
+      entering={FadeIn.duration(200)}
+      exiting={FadeOut.duration(120)}
       style={{
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(10,12,14,0.88)',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingTop: 20,
-        paddingBottom: 44,
-        paddingHorizontal: 24,
+        backgroundColor: 'rgba(8,10,12,0.92)',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingTop: 24,
+        paddingBottom: 48,
+        paddingHorizontal: 28,
         alignItems: 'center',
+        gap: 0,
       }}
     >
       {/* Bust icon */}
@@ -140,11 +144,11 @@ export default function MetricCard({ currentMetric, metricIndex }: MetricCardPro
       <Text
         style={{
           fontFamily: FONTS.MONO_BOLD,
-          fontSize: 28,
+          fontSize: 32,
           color: COLORS.TEXT_PRIMARY,
           textTransform: 'uppercase',
-          letterSpacing: 3,
-          marginTop: 10,
+          letterSpacing: 4,
+          marginTop: 8,
           textAlign: 'center',
         }}
       >
@@ -156,9 +160,9 @@ export default function MetricCard({ currentMetric, metricIndex }: MetricCardPro
         style={{
           fontFamily: FONTS.MONO,
           fontSize: 11,
-          color: 'rgba(255,255,255,0.4)',
-          letterSpacing: 2,
-          marginTop: 6,
+          color: 'rgba(255,255,255,0.38)',
+          letterSpacing: 2.5,
+          marginTop: 8,
           textAlign: 'center',
         }}
       >
@@ -166,7 +170,7 @@ export default function MetricCard({ currentMetric, metricIndex }: MetricCardPro
       </Text>
 
       {/* CALCULATING... */}
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: 18 }}>
         <CalculatingText />
       </View>
     </Animated.View>

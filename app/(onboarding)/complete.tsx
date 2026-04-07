@@ -77,7 +77,7 @@ export default function CompleteScreen() {
           <FrostedButton
             label="BẮT ĐẦU QUÉT PSL"
             variant="gold"
-            onPress={() => router.push('/(onboarding)/username')}
+            onPress={() => router.push('/(main)/scan')}
           />
         </Animated.View>
       </View>

@@ -25,6 +25,13 @@ export default function HomeScreen() {
   const { isPaid, subscriptionStatus } = useSubscription();
   const { trialResult, trialState } = useTrialScan();
 
+  // Redirect paid users to premium tabs
+  useEffect(() => {
+    if (isPaid) {
+      router.replace('/(premium)/scan');
+    }
+  }, [isPaid]);
+
   const hasScanned = trialState === 'used' || (isPaid && trialResult !== null);
   const score = trialResult?.overall_score ?? null;
   const rank = trialResult?.rank ?? null;
