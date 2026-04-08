@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -146,7 +146,11 @@ export default function ResultCard({ title, metrics, overallScore, locked, categ
         <View style={styles.barTrackLocked} />
 
         {/* Metric rows — names visible, values locked */}
-        <View style={styles.metricsList}>
+        <ScrollView
+          style={styles.metricsList}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+        >
           {metrics.map((m) => (
             <View key={m.name} style={styles.metricRow}>
               <Image source={FACE_THUMB} style={styles.metricThumb} resizeMode="cover" />
@@ -159,7 +163,7 @@ export default function ResultCard({ title, metrics, overallScore, locked, categ
               <Ionicons name="lock-closed" size={14} color="rgba(255,255,255,0.25)" />
             </View>
           ))}
-        </View>
+        </ScrollView>
       </Animated.View>
     );
   }
@@ -184,7 +188,11 @@ export default function ResultCard({ title, metrics, overallScore, locked, categ
       </View>
 
       {/* Metric rows */}
-      <View style={styles.metricsList}>
+      <ScrollView
+        style={styles.metricsList}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}
+      >
         {metrics.map((m) => (
           <View key={m.name} style={styles.metricRow}>
             <Image source={FACE_THUMB} style={styles.metricThumb} resizeMode="cover" />
@@ -197,7 +205,7 @@ export default function ResultCard({ title, metrics, overallScore, locked, categ
             <MetricValue metric={m} />
           </View>
         ))}
-      </View>
+      </ScrollView>
     </Animated.View>
   );
 }
@@ -274,7 +282,7 @@ const styles = StyleSheet.create({
 
   // Metrics
   metricsList: {
-    gap: 0,
+    maxHeight: 320,
   },
   metricRow: {
     flexDirection: 'row',

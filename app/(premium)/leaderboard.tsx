@@ -1,8 +1,8 @@
 // Premium Leaderboard Tab — Xếp hạng
-// Top 3 podium (inspired by ld1/ld2) + scrollable list below
-// Design: luxury minimal, gold only on #1 avatar border
+// Top 3 podium với ảnh + list + debounced search
+// Click vào bất kỳ entry → user-score screen
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,159 +11,259 @@ import {
   ActivityIndicator,
   StatusBar,
   TouchableOpacity,
+  TextInput,
+  Image,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import TrailBackground from '../../components/backgrounds/TrailBackground';
 import { useLeaderboard, LeaderboardEntry } from '../../hooks/useLeaderboard';
 import { useOnboarding } from '../../hooks/useOnboarding';
-import { useTrialScan } from '../../hooks/useTrialScan';
-import { COLORS, FONTS, getBarColor } from '../../lib/constants';
+import { COLORS, FONTS, getTierColor, PSL_TIER_ORDER } from '../../lib/constants';
+import { PSLTier } from '../../types';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getInitial(username: string): string {
   return username.charAt(0).toUpperCase();
 }
 
-// ── Podium item ───────────────────────────────────────────────────────────────
+// ── Top-3 Avatar ──────────────────────────────────────────────────────────────
+
+type AvatarProps = {
+  entry: LeaderboardEntry;
+  size: number;
+  isFirst: boolean;
+};
+
+function PodiumAvatar({ entry, size, isFirst }: AvatarProps) {
+  const borderColor = isFirst ? COLORS.ACCENT_GOLD : 'rgba(255,255,255,0.3)';
+  return (
+    <View
+      style={[
+        styles.podiumAvatarWrap,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderColor,
+          borderWidth: isFirst ? 2.5 : 1.5,
+        },
+      ]}
+    >
+      {entry.photo_url ? (
+        <Image
+          source={{ uri: entry.photo_url }}
+          style={{ width: size, height: size, borderRadius: size / 2 }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View
+          style={[
+            styles.podiumAvatarFallback,
+            { width: size, height: size, borderRadius: size / 2 },
+          ]}
+        >
+          <Text style={[styles.podiumInitial, { fontSize: isFirst ? 26 : 20 }]}>
+            {getInitial(entry.username)}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Podium Item ───────────────────────────────────────────────────────────────
 
 type PodiumItemProps = {
   entry: LeaderboardEntry;
   position: 1 | 2 | 3;
   isMe: boolean;
+  onPress: () => void;
 };
 
-function PodiumItem({ entry, position, isMe }: PodiumItemProps) {
-  const isFirst = position === 1;
-  const avatarSize = isFirst ? 64 : 52;
-  const borderColor = isFirst ? COLORS.ACCENT_GOLD : 'rgba(255,255,255,0.25)';
-  const avatarBg = isFirst
-    ? 'rgba(232,197,111,0.12)'
-    : 'rgba(255,255,255,0.06)';
+const PODIUM_HEIGHTS: Record<1 | 2 | 3, number> = { 1: 60, 2: 40, 3: 28 };
+const PODIUM_AVATAR_SIZES: Record<1 | 2 | 3, number> = { 1: 72, 2: 56, 3: 52 };
 
-  const podiumHeights = { 1: 60, 2: 40, 3: 28 };
-  const podiumH = podiumHeights[position];
+function PodiumItem({ entry, position, isMe, onPress }: PodiumItemProps) {
+  const isFirst = position === 1;
+  const tierColor = entry.psl_tier ? getTierColor(entry.psl_tier as PSLTier) : COLORS.TEXT_SECONDARY;
 
   return (
-    <View style={[styles.podiumItem, isFirst && styles.podiumItemFirst]}>
-      {/* Avatar */}
-      <View
-        style={[
-          styles.podiumAvatar,
-          {
-            width: avatarSize,
-            height: avatarSize,
-            borderRadius: avatarSize / 2,
-            borderColor,
-            backgroundColor: avatarBg,
-          },
-        ]}
-      >
-        <Text style={[styles.podiumInitial, isFirst && styles.podiumInitialFirst]}>
-          {getInitial(entry.username)}
-        </Text>
-      </View>
+    <TouchableOpacity
+      style={[styles.podiumItem, isFirst && styles.podiumItemFirst]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <PodiumAvatar entry={entry} size={PODIUM_AVATAR_SIZES[position]} isFirst={isFirst} />
 
-      {/* Username */}
       <Text style={[styles.podiumName, isMe && styles.podiumNameMe]} numberOfLines={1}>
         {entry.username}
       </Text>
 
       {/* Score */}
       <Text style={[styles.podiumScore, isFirst && styles.podiumScoreFirst]}>
-        {entry.overall_score.toFixed(1)}
+        {Math.round(entry.combined_score)}
       </Text>
 
+      {/* PSL tier label */}
+      {entry.psl_tier && (
+        <Text style={[styles.podiumTier, { color: tierColor }]}>
+          {entry.psl_tier.toUpperCase()}
+        </Text>
+      )}
+
       {/* Podium block */}
-      <View style={[styles.podiumBlock, { height: podiumH }]}>
+      <View style={[styles.podiumBlock, { height: PODIUM_HEIGHTS[position] }]}>
         <Text style={styles.podiumRankNum}>{position}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── List Row ──────────────────────────────────────────────────────────────────
 
-const FILTERS = [10, 20] as const;
-type FilterValue = (typeof FILTERS)[number];
+type RowProps = {
+  item: LeaderboardEntry;
+  index: number;
+  isMe: boolean;
+  onPress: () => void;
+};
 
-export default function LeaderboardTab() {
-  const { fetchLeaderboard } = useLeaderboard();
-  const { answers } = useOnboarding();
-  const { trialResult } = useTrialScan();
+function ListRow({ item, index, isMe, onPress }: RowProps) {
+  const tierColor = item.psl_tier ? getTierColor(item.psl_tier as PSLTier) : 'transparent';
+  const barPct = Math.min(item.combined_score / 100, 1) * 100;
 
-  const myUsername = answers.username ?? null;
-  const myRank = trialResult?.rank ?? null;
-
-  const [filter, setFilter] = useState<FilterValue>(10);
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [totalUsers, setTotalUsers] = useState<number | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchLeaderboard(filter).then((data) => {
-      setEntries(data);
-      if (data.length > 0) setTotalUsers(data[0].total_users);
-      setLoading(false);
-    });
-  }, [filter]);
-
-  const top3 = entries.slice(0, 3);
-  const rest = entries.slice(3);
-
-  // Podium order: 2nd left, 1st center, 3rd right
-  const podiumOrder: (LeaderboardEntry | null)[] = [
-    top3[1] ?? null,
-    top3[0] ?? null,
-    top3[2] ?? null,
-  ];
-  const podiumPositions: (1 | 2 | 3)[] = [2, 1, 3];
-
-  const renderRow = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
-    const isMe = myUsername ? item.username === myUsername : false;
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 30).duration(280)}
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 25).duration(260)}>
+      <TouchableOpacity
         style={[styles.row, isMe && styles.rowMe]}
+        onPress={onPress}
+        activeOpacity={0.75}
       >
-        <View style={styles.rankCol}>
-          <Text style={[styles.rankNum, isMe && styles.rankNumMe]}>#{item.rank}</Text>
+        {/* Rank */}
+        <Text style={[styles.rankNum, isMe && styles.rankNumMe]}>#{item.rank}</Text>
+
+        {/* Mini avatar */}
+        <View style={styles.rowAvatarWrap}>
+          {item.photo_url ? (
+            <Image
+              source={{ uri: item.photo_url }}
+              style={styles.rowAvatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.rowAvatar, styles.rowAvatarFallback]}>
+              <Text style={styles.rowInitial}>{getInitial(item.username)}</Text>
+            </View>
+          )}
         </View>
+
+        {/* Name + bar */}
         <View style={styles.nameCol}>
           <View style={styles.nameRow}>
             <Text style={[styles.username, isMe && styles.usernameMe]} numberOfLines={1}>
               {item.username}
             </Text>
-            {isMe && <Text style={styles.youBadge}>YOU</Text>}
+            {isMe && <Text style={styles.youBadge}>BẠN</Text>}
+            {item.psl_tier && (
+              <Text style={[styles.tierTag, { color: tierColor, borderColor: tierColor }]}>
+                {item.psl_tier}
+              </Text>
+            )}
           </View>
           <View style={styles.barTrack}>
             <View
               style={[
                 styles.barFill,
-                {
-                  width: `${(item.overall_score / 10) * 100}%` as any,
-                  backgroundColor: getBarColor(item.overall_score),
-                },
+                { width: `${barPct}%`, backgroundColor: isMe ? COLORS.ACCENT_GOLD : tierColor || COLORS.TEXT_SECONDARY },
               ]}
             />
           </View>
         </View>
+
+        {/* Score */}
         <Text style={[styles.scoreText, isMe && styles.scoreTextMe]}>
-          {item.overall_score.toFixed(1)}
+          {Math.round(item.combined_score)}
         </Text>
-      </Animated.View>
-    );
+
+        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.25)" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+export default function LeaderboardTab() {
+  const router = useRouter();
+  const { fetchLeaderboard, searchLeaderboard } = useLeaderboard();
+  const { answers } = useOnboarding();
+  const myUsername = answers.username ?? null;
+
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initial load
+  useEffect(() => {
+    fetchLeaderboard().then((data) => {
+      setEntries(data);
+      setLoading(false);
+    });
+  }, []);
+
+  // Debounced search — 300 ms, no lag even with many users
+  const handleSearch = useCallback((text: string) => {
+    setSearchText(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      const data = await searchLeaderboard(text);
+      setEntries(data);
+      setSearching(false);
+    }, 300);
+  }, []);
+
+  const navigateToUser = (entry: LeaderboardEntry) => {
+    router.push({
+      pathname: '/(premium)/user-score',
+      params: { entry: JSON.stringify(entry) },
+    });
   };
+
+  const top3 = entries.slice(0, 3);
+  // Podium order: 2nd left, 1st center, 3rd right
+  const podiumOrder = [top3[1], top3[0], top3[2]];
+  const podiumPositions: (1 | 2 | 3)[] = [2, 1, 3];
+
+  const listData = searchText ? entries : entries.slice(3);
+  const totalUsers = entries[0]?.total_users ?? null;
+
+  const renderRow = ({ item, index }: { item: LeaderboardEntry; index: number }) => (
+    <ListRow
+      item={item}
+      index={index}
+      isMe={myUsername ? item.username === myUsername : false}
+      onPress={() => navigateToUser(item)}
+    />
+  );
 
   return (
     <TrailBackground>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <FlatList
-        data={rest}
+        data={listData}
         keyExtractor={(item) => item.username}
         renderItem={renderRow}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
             {/* Header */}
@@ -174,21 +274,29 @@ export default function LeaderboardTab() {
               )}
             </Animated.View>
 
-            {/* My rank banner */}
-            {myRank !== null && (
-              <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.myRankBanner}>
-                <Text style={styles.myRankLabel}>HẠNG CỦA BẠN</Text>
-                <Text style={styles.myRankValue}>
-                  #{myRank}
-                  {totalUsers ? (
-                    <Text style={styles.myRankTotal}> / {totalUsers}</Text>
-                  ) : null}
-                </Text>
-              </Animated.View>
-            )}
+            {/* Search bar */}
+            <Animated.View entering={FadeInDown.delay(80).duration(400)} style={styles.searchWrap}>
+              <Ionicons name="search" size={15} color={COLORS.TEXT_SECONDARY} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm theo username..."
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={searchText}
+                onChangeText={handleSearch}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {searching && <ActivityIndicator size="small" color={COLORS.TEXT_SECONDARY} style={{ marginRight: 8 }} />}
+              {searchText.length > 0 && !searching && (
+                <TouchableOpacity onPress={() => handleSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={16} color={COLORS.TEXT_SECONDARY} />
+                </TouchableOpacity>
+              )}
+            </Animated.View>
 
-            {/* Top 3 Podium */}
-            {!loading && top3.length >= 1 && (
+            {/* Top 3 Podium — only when not searching */}
+            {!loading && !searchText && top3.length >= 1 && (
               <Animated.View entering={FadeInDown.delay(150).duration(500)}>
                 <LinearGradient
                   colors={['rgba(255,255,255,0.03)', 'transparent']}
@@ -202,10 +310,11 @@ export default function LeaderboardTab() {
                           entry={entry}
                           position={podiumPositions[idx]}
                           isMe={myUsername ? entry.username === myUsername : false}
+                          onPress={() => navigateToUser(entry)}
                         />
                       ) : (
                         <View key={idx} style={styles.podiumPlaceholder} />
-                      )
+                      ),
                     )}
                   </View>
                 </LinearGradient>
@@ -213,23 +322,7 @@ export default function LeaderboardTab() {
             )}
 
             {/* Divider */}
-            {rest.length > 0 && <View style={styles.divider} />}
-
-            {/* Filter tabs */}
-            <View style={styles.filters}>
-              {FILTERS.map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterTab, filter === f && styles.filterTabActive]}
-                  onPress={() => setFilter(f)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                    TOP {f}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {(listData.length > 0 || searching) && <View style={styles.divider} />}
 
             {loading && (
               <View style={styles.loadingWrap}>
@@ -239,9 +332,11 @@ export default function LeaderboardTab() {
           </>
         }
         ListEmptyComponent={
-          !loading ? (
+          !loading && !searching ? (
             <View style={styles.loadingWrap}>
-              <Text style={styles.emptyText}>CHƯA CÓ DỮ LIỆU</Text>
+              <Text style={styles.emptyText}>
+                {searchText ? 'KHÔNG TÌM THẤY KẾT QUẢ' : 'CHƯA CÓ DỮ LIỆU'}
+              </Text>
             </View>
           ) : null
         }
@@ -249,6 +344,8 @@ export default function LeaderboardTab() {
     </TrailBackground>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   listContent: {
@@ -259,7 +356,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: 60,
     paddingHorizontal: 24,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   title: {
     fontFamily: FONTS.MONO_BOLD,
@@ -275,36 +372,28 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
 
-  // My rank banner
-  myRankBanner: {
+  // Search
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 24,
     marginBottom: 16,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,0.09)',
+    paddingHorizontal: 12,
+    height: 44,
   },
-  myRankLabel: {
-    fontFamily: FONTS.MONO,
-    fontSize: 11,
-    color: COLORS.TEXT_SECONDARY,
-    letterSpacing: 2,
+  searchIcon: {
+    marginRight: 8,
   },
-  myRankValue: {
-    fontFamily: FONTS.MONO_BOLD,
-    fontSize: 18,
-    color: COLORS.TEXT_PRIMARY,
-    letterSpacing: 1,
-  },
-  myRankTotal: {
+  searchInput: {
+    flex: 1,
     fontFamily: FONTS.MONO,
     fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
+    color: COLORS.TEXT_PRIMARY,
+    letterSpacing: 0.5,
   },
 
   // Podium
@@ -324,24 +413,26 @@ const styles = StyleSheet.create({
   podiumItem: {
     flex: 1,
     alignItems: 'center',
-    maxWidth: 110,
+    maxWidth: 120,
   },
-  podiumItemFirst: {
-    marginBottom: 0,
+  podiumItemFirst: {},
+  podiumAvatarWrap: {
+    overflow: 'hidden',
+    marginBottom: 8,
+    shadowColor: COLORS.ACCENT_GOLD,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  podiumAvatar: {
-    borderWidth: 1.5,
+  podiumAvatarFallback: {
+    backgroundColor: 'rgba(232,197,111,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   podiumInitial: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 20,
     color: COLORS.TEXT_PRIMARY,
-  },
-  podiumInitialFirst: {
-    fontSize: 24,
   },
   podiumName: {
     fontFamily: FONTS.MONO,
@@ -349,7 +440,7 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
     letterSpacing: 0.5,
     marginBottom: 2,
-    maxWidth: 90,
+    maxWidth: 100,
     textAlign: 'center',
   },
   podiumNameMe: {
@@ -357,12 +448,19 @@ const styles = StyleSheet.create({
   },
   podiumScore: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   podiumScoreFirst: {
-    fontSize: 15,
+    fontSize: 18,
+    color: COLORS.ACCENT_GOLD,
+  },
+  podiumTier: {
+    fontFamily: FONTS.MONO,
+    fontSize: 9,
+    letterSpacing: 1,
+    marginBottom: 6,
   },
   podiumBlock: {
     width: '100%',
@@ -379,7 +477,7 @@ const styles = StyleSheet.create({
   },
   podiumPlaceholder: {
     flex: 1,
-    maxWidth: 110,
+    maxWidth: 120,
   },
 
   // Divider
@@ -387,38 +485,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.06)',
     marginHorizontal: 24,
-    marginVertical: 16,
-  },
-
-  // Filters
-  filters: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-  },
-  filterTabActive: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  filterText: {
-    fontFamily: FONTS.MONO,
-    fontSize: 11,
-    color: COLORS.TEXT_SECONDARY,
-    letterSpacing: 1,
-  },
-  filterTextActive: {
-    fontFamily: FONTS.MONO_BOLD,
-    color: COLORS.TEXT_PRIMARY,
+    marginVertical: 14,
   },
 
   // List rows
@@ -429,9 +496,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
     marginHorizontal: 24,
     marginBottom: 8,
   },
@@ -439,30 +506,50 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderColor: 'rgba(255,255,255,0.18)',
   },
-  rankCol: {
-    width: 36,
-    alignItems: 'center',
-  },
   rankNum: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.TEXT_SECONDARY,
+    width: 30,
+    textAlign: 'center',
   },
   rankNumMe: {
     color: COLORS.TEXT_PRIMARY,
   },
+  rowAvatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  rowAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  rowAvatarFallback: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowInitial: {
+    fontFamily: FONTS.MONO_BOLD,
+    fontSize: 14,
+    color: COLORS.TEXT_PRIMARY,
+  },
   nameCol: {
     flex: 1,
-    gap: 6,
+    gap: 5,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexWrap: 'nowrap',
   },
   username: {
     fontFamily: FONTS.MONO,
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.TEXT_PRIMARY,
     flexShrink: 1,
   },
@@ -471,13 +558,22 @@ const styles = StyleSheet.create({
   },
   youBadge: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 9,
-    color: COLORS.TEXT_SECONDARY,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 6,
+    fontSize: 8,
+    color: COLORS.ACCENT_GOLD,
+    backgroundColor: 'rgba(232,197,111,0.12)',
+    paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
     letterSpacing: 1,
+  },
+  tierTag: {
+    fontFamily: FONTS.MONO,
+    fontSize: 8,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    letterSpacing: 0.5,
   },
   barTrack: {
     height: 3,
@@ -491,13 +587,13 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     fontFamily: FONTS.MONO_BOLD,
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.TEXT_PRIMARY,
-    width: 36,
+    width: 32,
     textAlign: 'right',
   },
   scoreTextMe: {
-    color: COLORS.TEXT_PRIMARY,
+    color: COLORS.ACCENT_GOLD,
   },
 
   loadingWrap: {

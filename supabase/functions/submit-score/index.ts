@@ -6,12 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Matches the same rules as the client:
-// - First char must be a Unicode letter (Latin or Vietnamese)
-// - Remaining: letters, digits, space, dot, underscore, hyphen
-// - Total length: 3–30 characters
-// The /u flag enables Unicode property escapes.
 const USERNAME_REGEX = /^[\p{L}][\p{L}\p{N} ._-]{2,29}$/u;
+
+// PSL tier order for combined_score calculation (index × 5 = tier points, max 30)
+const PSL_TIER_ORDER = ['Sub 3', 'Sub 5', 'LTN', 'MTN', 'HTN', 'Chang', 'True Chang'];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,7 +40,19 @@ serve(async (req) => {
 
     // ── Validate inputs ───────────────────────────────────────────────────────
     const body = await req.json();
-    const { overall_score, username, is_public } = body;
+    const {
+      overall_score,
+      username,
+      is_public,
+      psl_tier,
+      potential_tier,
+      appeal_score,
+      jaw_score,
+      eyes_score,
+      nose_score,
+      hair_score,
+      photo_url,
+    } = body;
 
     if (!USERNAME_REGEX.test(username ?? '')) {
       return new Response(JSON.stringify({ error: 'Invalid username' }), {
@@ -56,10 +66,14 @@ serve(async (req) => {
       });
     }
 
+    // ── Calculate combined_score (0–100) ──────────────────────────────────────
+    // overall_score (0–10) × 7 = max 70 points
+    // tier_index (0–6) × 5 = max 30 points
+    const tierIndex = PSL_TIER_ORDER.indexOf(psl_tier ?? '');
+    const tierPoints = tierIndex >= 0 ? tierIndex * 5 : 0;
+    const combined_score = parseFloat((overall_score * 7 + tierPoints).toFixed(2));
+
     // ── Upsert profile (claims username) ──────────────────────────────────────
-    // This will fail with a 23505 (unique_violation) if another user already
-    // owns this username. We surface that as a 409 so the client can prompt
-    // the user to pick a different name.
     const { error: profileError } = await supabase.rpc('upsert_profile', {
       p_user_id:      user.id,
       p_username:     username,
@@ -77,16 +91,25 @@ serve(async (req) => {
       });
     }
 
-    // ── Upsert score (keep the highest score ever) ────────────────────────────
+    // ── Upsert score with extended fields ─────────────────────────────────────
     const { error: upsertError } = await supabase.rpc('upsert_user_score', {
-      p_user_id:   user.id,
-      p_username:  username,
-      p_score:     overall_score,
-      p_is_public: is_public ?? true,
+      p_user_id:        user.id,
+      p_username:       username,
+      p_score:          overall_score,
+      p_is_public:      is_public ?? true,
+      p_psl_tier:       psl_tier ?? null,
+      p_potential_tier: potential_tier ?? null,
+      p_appeal_score:   typeof appeal_score === 'number' ? appeal_score : null,
+      p_jaw_score:      typeof jaw_score === 'number' ? jaw_score : null,
+      p_eyes_score:     typeof eyes_score === 'number' ? eyes_score : null,
+      p_nose_score:     typeof nose_score === 'number' ? nose_score : null,
+      p_hair_score:     typeof hair_score === 'number' ? hair_score : null,
+      p_photo_url:      photo_url ?? null,
+      p_combined_score: combined_score,
     });
 
     if (upsertError) {
-      // Fallback: direct upsert
+      // Fallback: direct upsert (older schema)
       await supabase.from('user_scores').upsert(
         {
           user_id:       user.id,

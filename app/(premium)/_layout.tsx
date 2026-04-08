@@ -23,18 +23,20 @@ const TABS: TabDef[] = [
 const LuxuryTabBar = memo(function LuxuryTabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <View style={styles.tabBar}>
-      {TABS.map((tab, index) => {
-        const isActive = state.index === index;
+      {TABS.map((tab) => {
+        const routeIndex = state.routes.findIndex((r) => r.name === tab.name);
+        if (routeIndex === -1) return null;
+        const isActive = state.index === routeIndex;
         const iconColor = isActive ? COLORS.TEXT_PRIMARY : 'rgba(255,255,255,0.3)';
 
         const onPress = () => {
           const event = navigation.emit({
             type: 'tabPress',
-            target: state.routes[index]?.key,
+            target: state.routes[routeIndex].key,
             canPreventDefault: true,
           });
           if (!isActive && !event.defaultPrevented) {
-            navigation.navigate(state.routes[index]?.name ?? tab.name);
+            navigation.navigate(state.routes[routeIndex].name);
           }
         };
 
@@ -64,16 +66,18 @@ const LuxuryTabBar = memo(function LuxuryTabBar({ state, navigation }: BottomTab
   );
 });
 
-const SCENE_STYLE = { backgroundColor: COLORS.BACKGROUND_PRIMARY } as const;
 const renderTabBar = (props: BottomTabBarProps) => <LuxuryTabBar {...props} />;
-const SCREEN_OPTIONS = { headerShown: false, animation: 'none' } as const;
+const SCREEN_OPTIONS = {
+  headerShown: false,
+  animation: 'none',
+  contentStyle: { backgroundColor: COLORS.BACKGROUND_PRIMARY },
+} as const;
 
 export default function PremiumLayout() {
   return (
     <Tabs
       tabBar={renderTabBar}
       screenOptions={SCREEN_OPTIONS}
-      sceneContainerStyle={SCENE_STYLE}
     />
   );
 }

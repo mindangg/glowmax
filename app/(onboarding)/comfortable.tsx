@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -23,7 +23,8 @@ const LEVELS = [
 
 export default function BadExperienceScreen() {
     const router = useRouter();
-    const { answers, setAnswer } = useOnboarding();
+    const { setAnswer } = useOnboarding();
+    const [selected, setSelected] = useState<string | null>(null);
 
     const titleOpacity = useSharedValue(0);
     const optionsOpacity = useSharedValue(0);
@@ -52,8 +53,8 @@ export default function BadExperienceScreen() {
                         <OptionCard
                             key={l.key}
                             label={l.label}
-                            selected={answers.experience === l.key}
-                            onPress={() => setAnswer('experience', l.key)}
+                            selected={selected === l.key}
+                            onPress={() => { setSelected(l.key); setAnswer('experience', l.key); }}
                         />
                     ))}
                 </Animated.View>
@@ -62,7 +63,7 @@ export default function BadExperienceScreen() {
                     <FrostedButton
                         label="TIẾP TỤC"
                         onPress={() => router.push('/(onboarding)/barriers')}
-                        disabled={!answers.experience}
+                        disabled={!selected}
                     />
                 </Animated.View>
             </View>

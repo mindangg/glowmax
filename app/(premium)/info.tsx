@@ -19,6 +19,7 @@ import {
   getSectionsByCategory,
   InfoSection,
 } from '../../lib/infoContent';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONTS } from '../../lib/constants';
 
 // ── Detail view ───────────────────────────────────────────────────────────────

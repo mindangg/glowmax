@@ -56,10 +56,32 @@ export default function ResultsRouter() {
   const [rankSubmitted, setRankSubmitted] = useState(false);
   const [myRank, setMyRank] = useState<{ rank: number; total_users: number } | null>(null);
 
-  // Build category order — PSL included for all users (locked for trial)
   const CATEGORY_ORDER: CarouselItem[] = [
-    'psl', 'appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair', 'ascension', 'leanmax',
+    'psl', 'appeal', 'jaw', 'eyes', 'orbitals', 'zygos', 'harmony', 'nose', 'hair',
   ];
+
+  // Helper: build category score averages for submit / ScoreCard
+  function getCategoryScores() {
+    const cats = fullResults?.categories ?? [];
+    const get = (c: string) => cats.find((x) => x.category === c)?.overallScore;
+    return {
+      appeal_score: get('appeal'),
+      jaw_score:    get('jaw'),
+      // eyes_score = average of eyes + orbitals
+      eyes_score:   avg(get('eyes'), get('orbitals')),
+      // nose_score = average of nose + harmony
+      nose_score:   avg(get('nose'), get('harmony')),
+      // hair_score = average of hair + ascension
+      hair_score:   avg(get('hair'), get('ascension')),
+    };
+  }
+
+  function avg(a: number | undefined, b: number | undefined): number | undefined {
+    if (a == null && b == null) return undefined;
+    if (a == null) return b;
+    if (b == null) return a;
+    return (a + b) / 2;
+  }
 
   // Trigger the appropriate API call once on mount
   useEffect(() => {
@@ -100,11 +122,9 @@ export default function ResultsRouter() {
     const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
     const username = answers.username ?? 'anonymous';
     if (!isPaid) {
-      // Free: always public, no modal
       setRankSubmitted(true);
-      submitScore(score, username, true).then(r => { if (r) setMyRank(r); });
+      submitScore({ overall_score: score, username, is_public: true }).then(r => { if (r) setMyRank(r); });
     } else {
-      // Paid: show modal
       setShowRankModal(true);
     }
   }, [apiStatus]);
@@ -122,17 +142,47 @@ export default function ResultsRouter() {
   const isCardLocked = useCallback(
     (category: CarouselItem): boolean => {
       if (isPaid) return false;
-      // Trial users: everything is locked
       return true;
     },
     [isPaid]
   );
 
+  const handleViewRank = () => {
+    router.push('/(premium)/leaderboard');
+  };
+
+  const handleViewMyScore = () => {
+    const pslData    = fullResults?.pslResult;
+    const catScores  = getCategoryScores();
+    const appealScore = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+    const tierIndex   = pslData?.psl_tier
+      ? ['Sub 3', 'Sub 5', 'LTN', 'MTN', 'HTN', 'Chang', 'True Chang'].indexOf(pslData.psl_tier)
+      : -1;
+    const combinedScore = appealScore * 7 + Math.max(0, tierIndex) * 5;
+
+    const scoreData = {
+      username:       answers.username ?? 'YOU',
+      photoUri:       photoUri ?? undefined,
+      combinedScore,
+      pslTier:        pslData?.psl_tier,
+      potentialTier:  pslData?.potential_tier,
+      eyesScore:      catScores.eyes_score,
+      jawScore:       catScores.jaw_score,
+      appealScore:    catScores.appeal_score,
+      noseScore:      catScores.nose_score,
+      hairScore:      catScores.hair_score,
+    };
+
+    router.push({
+      pathname: '/(main)/my-score',
+      params: { data: JSON.stringify(scoreData) },
+    });
+  };
+
   const renderItem = useCallback(
     ({ item }: { item: CarouselItem }) => {
-      // PSL Card — shown for all users, locked for trial
       if (item === 'psl') {
-        const locked = isCardLocked(item);
+        const locked  = isCardLocked(item);
         const pslData = fullResults?.pslResult;
         return (
           <View style={{ width: CARD_WIDTH, paddingVertical: 10, marginHorizontal: CARD_GAP / 2 }}>
@@ -148,7 +198,6 @@ export default function ResultsRouter() {
 
       const locked = isCardLocked(item);
 
-      // Appeal Card
       if (item === 'appeal') {
         const appealData = fullResults?.categories.find((r) => r.category === 'appeal');
         return (
@@ -161,8 +210,7 @@ export default function ResultsRouter() {
         );
       }
 
-      // Result Cards
-      const catData = RESULT_CATEGORIES_DATA.find((c) => c.category === item);
+      const catData  = RESULT_CATEGORIES_DATA.find((c) => c.category === item);
       const fullData = fullResults?.categories.find((r) => r.category === item);
 
       return (
@@ -172,12 +220,12 @@ export default function ResultsRouter() {
             metrics={fullData?.metrics ?? []}
             overallScore={fullData?.overallScore ?? 0}
             locked={locked}
-            category={item}
+            category={item as ResultCategory}
           />
         </View>
       );
     },
-    [isCardLocked, isPaid, fullResults]
+    [isCardLocked, isPaid, fullResults, photoUri, answers.username]
   );
 
   const handleCTA = () => {
@@ -186,6 +234,28 @@ export default function ResultsRouter() {
 
   const handleHome = () => {
     router.replace('/(main)/');
+  };
+
+  const doSubmit = async (isPublic: boolean) => {
+    setShowRankModal(false);
+    setRankSubmitted(true);
+    const score    = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+    const username = answers.username ?? 'anonymous';
+    const catScores = getCategoryScores();
+
+    submitScore({
+      overall_score:   score,
+      username,
+      is_public:       isPublic,
+      psl_tier:        fullResults?.pslResult.psl_tier,
+      potential_tier:  fullResults?.pslResult.potential_tier,
+      appeal_score:    catScores.appeal_score,
+      jaw_score:       catScores.jaw_score,
+      eyes_score:      catScores.eyes_score,
+      nose_score:      catScores.nose_score,
+      hair_score:      catScores.hair_score,
+      photo_uri:       isPublic && photoUri ? photoUri : undefined,
+    }).then(r => { if (r) setMyRank(r); });
   };
 
   // --- Loading state ---
@@ -274,12 +344,12 @@ export default function ResultsRouter() {
               <Text style={styles.seeFullResultsText}>SEE FULL RESULTS</Text>
             </Pressable>
           ) : (
-            <FrostedButton label="GO HOME" onPress={handleHome} variant="default" />
+            <FrostedButton label="XEM ĐIỂM TỔNG QUÁT" onPress={handleViewMyScore} variant="gold" />
           )}
           {myRank !== null && (
             <TouchableOpacity
               style={styles.leaderboardBtn}
-              onPress={() => router.push(`/(main)/leaderboard?myRank=${myRank.rank}`)}
+              onPress={handleViewRank}
               activeOpacity={0.7}
             >
               <Text style={styles.leaderboardBtnText}>XEM BẢNG XẾP HẠNG →</Text>
@@ -298,23 +368,13 @@ export default function ResultsRouter() {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnPrimary]}
-                onPress={() => {
-                  setShowRankModal(false);
-                  setRankSubmitted(true);
-                  const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
-                  submitScore(score, answers.username ?? 'anonymous', true).then(r => { if (r) setMyRank(r); });
-                }}
+                onPress={() => doSubmit(true)}
               >
                 <Text style={styles.modalBtnTextPrimary}>CÓ, CÔNG KHAI</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalBtn}
-                onPress={() => {
-                  setShowRankModal(false);
-                  setRankSubmitted(true);
-                  const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
-                  submitScore(score, answers.username ?? 'anonymous', false).then(r => { if (r) setMyRank(r); });
-                }}
+                onPress={() => doSubmit(false)}
               >
                 <Text style={styles.modalBtnText}>GIỮ RIÊNG TƯ</Text>
               </TouchableOpacity>
@@ -336,8 +396,9 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     justifyContent: 'center',
   },
+  // Increased height to prevent card content from being clipped
   cardsArea: {
-    height: SCREEN_HEIGHT * 0.52,
+    height: SCREEN_HEIGHT * 0.64,
   },
 
   // Loading / error
@@ -381,29 +442,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 8,
+    marginTop: 10,
+    gap: 6,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: {
     backgroundColor: COLORS.ACCENT_GOLD,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 
   // CTA
   ctaWrapper: {
-    marginTop: 16,
+    marginTop: 14,
     paddingHorizontal: 20,
   },
-
-  // "SEE FULL RESULTS" white pill button
   seeFullResultsBtn: {
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 50,
@@ -417,8 +476,6 @@ const styles = StyleSheet.create({
     color: '#000',
     letterSpacing: 1.5,
   },
-
-  // Leaderboard button
   leaderboardBtn: {
     alignItems: 'center',
     paddingVertical: 10,

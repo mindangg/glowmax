@@ -16,19 +16,17 @@ import TrailBackground from '../../components/backgrounds/TrailBackground';
 import { useDailyTasks } from '../../hooks/useDailyTasks';
 import { DAILY_CATEGORIES, TOTAL_DAILY_TASKS } from '../../lib/dailyTasks';
 import { getSectionById } from '../../lib/infoContent';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONTS } from '../../lib/constants';
 
 // ── Week strip ────────────────────────────────────────────────────────────────
 
 const DAYS_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
-function getWeekDates(anchor: Date): Date[] {
-  const day = anchor.getDay(); // 0=Sun
-  const monday = new Date(anchor);
-  monday.setDate(anchor.getDate() - ((day + 6) % 7)); // Mon as first day
+function getCenteredDates(anchor: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    const d = new Date(anchor);
+    d.setDate(anchor.getDate() - 3 + i);
     return d;
   });
 }
@@ -48,19 +46,23 @@ type WeekStripProps = {
 
 function WeekStrip({ selectedDate, onSelectDate }: WeekStripProps) {
   const today = new Date();
-  const week = getWeekDates(today);
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dates = getCenteredDates(today);
 
   return (
     <View style={stripStyles.row}>
-      {week.map((d, i) => {
+      {dates.map((d, i) => {
+        const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const active = isSameDay(d, selectedDate);
         const isToday = isSameDay(d, today);
+        const isFuture = dMidnight > todayMidnight;
         return (
           <TouchableOpacity
             key={i}
-            style={[stripStyles.day, active && stripStyles.dayActive]}
+            style={[stripStyles.day, active && stripStyles.dayActive, isFuture && stripStyles.dayFuture]}
             onPress={() => onSelectDate(d)}
-            activeOpacity={0.7}
+            activeOpacity={isFuture ? 1 : 0.7}
+            disabled={isFuture}
           >
             <Text style={[stripStyles.dayName, active && stripStyles.dayNameActive]}>
               {DAYS_SHORT[d.getDay()]}
@@ -112,6 +114,9 @@ const stripStyles = StyleSheet.create({
   },
   dayNumToday: {
     color: COLORS.TEXT_PRIMARY,
+  },
+  dayFuture: {
+    opacity: 0.25,
   },
 });
 

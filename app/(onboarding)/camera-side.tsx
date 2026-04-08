@@ -7,7 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {
@@ -34,6 +34,8 @@ const VH = Math.min(VW * (4 / 3), SH - TOP_SECTION_H - BOTTOM_SECTION_H - SAFE_H
 
 export default function CameraSideScreen() {
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const fromPremium = from === 'premium';
   const [permission, requestPermission] = useCameraPermissions();
   const { cameraRef, sidePhoto, capturePhoto, retakePhoto, importPhoto } = usePhotoCapture();
   const [isCapturing, setIsCapturing] = useState(false);
@@ -69,7 +71,7 @@ export default function CameraSideScreen() {
   };
 
   const handleContinue = () => {
-    router.push('/(onboarding)/complete');
+    router.push(fromPremium ? '/(premium)/scan' : '/(onboarding)/complete');
   };
 
   if (!permission?.granted) {
@@ -87,7 +89,20 @@ export default function CameraSideScreen() {
 
   return (
     <TrailBackground>
-      <BackArrow />
+      {fromPremium ? (
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => router.replace('/(premium)/scan')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Svg width={20} height={20} viewBox="0 0 24 24">
+            <Path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </TouchableOpacity>
+      ) : (
+        <BackArrow />
+      )}
       <Animated.View style={[styles.container, uiStyle]}>
 
         {/* Top section */}
@@ -197,6 +212,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 56,
     paddingBottom: 36,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 56,
+    left: 20,
+    zIndex: 10,
+    padding: 4,
   },
   permissionContainer: {
     flex: 1,

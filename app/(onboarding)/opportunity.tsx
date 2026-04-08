@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -24,7 +24,8 @@ const GOALS = [
 
 export default function GoalScreen() {
     const router = useRouter();
-    const { answers, setAnswer } = useOnboarding();
+    const { setAnswer } = useOnboarding();
+    const [selected, setSelected] = useState<string | null>(null);
 
     const titleOpacity = useSharedValue(0);
     const optionsOpacity = useSharedValue(0);
@@ -53,8 +54,8 @@ export default function GoalScreen() {
                         <OptionCard
                             key={g.key}
                             label={g.label}
-                            selected={answers.goal === g.key}
-                            onPress={() => setAnswer('goal', g.key)}
+                            selected={selected === g.key}
+                            onPress={() => { setSelected(g.key); setAnswer('goal', g.key); }}
                         />
                     ))}
                 </Animated.View>
@@ -63,7 +64,7 @@ export default function GoalScreen() {
                     <FrostedButton
                         label="TIẾP TỤC"
                         onPress={() => router.push('/(onboarding)/point')}
-                        disabled={!answers.goal}
+                        disabled={!selected}
                     />
                 </Animated.View>
             </View>

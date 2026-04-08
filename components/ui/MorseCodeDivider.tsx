@@ -29,7 +29,7 @@ const LETTER_GAP = 8;
 const DOT_OFFSET = 6;
 
 export default function MorseCodeDivider() {
-    const elements: { type: string; x: number; }[] = [];
+    const elements: { type: string; x: number; dotIndex: number }[] = [];
     let x = 0;
     let dotIndex = 0; // track dot count for alternating
 

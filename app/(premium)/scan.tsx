@@ -14,6 +14,7 @@ import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useTrialScan } from '../../hooks/useTrialScan';
 import { useFullAnalysis } from '../../hooks/useFullAnalysis';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { COLORS, FONTS } from '../../lib/constants';
 
 export default function ScanTab() {
@@ -29,7 +30,7 @@ export default function ScanTab() {
   const hasScanned = trialState === 'used' || score !== null;
 
   const handleScan = () => {
-    router.push('/(onboarding)/photo-capture');
+    router.push('/(onboarding)/camera?from=premium');
   };
 
   return (

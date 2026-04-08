@@ -90,3 +90,19 @@ export interface UserScore {
   total_users: number;
   created_at: string;
 }
+
+export interface LeaderboardEntry {
+  username: string;
+  overall_score: number;
+  combined_score: number;
+  rank: number;
+  total_users: number;
+  psl_tier?: string;
+  potential_tier?: string;
+  appeal_score?: number;
+  jaw_score?: number;
+  eyes_score?: number;
+  nose_score?: number;
+  hair_score?: number;
+  photo_url?: string;
+}

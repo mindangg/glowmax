@@ -17,6 +17,7 @@ import TrailBackground from '../../components/backgrounds/TrailBackground';
 import { useTrialScan } from '../../hooks/useTrialScan';
 import { useFullAnalysis } from '../../hooks/useFullAnalysis';
 import { usePhotoCapture } from '../../hooks/usePhotoCapture';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { COLORS, FONTS, PSL_TIER_ORDER } from '../../lib/constants';
 import { PSLTier } from '../../types';
 
