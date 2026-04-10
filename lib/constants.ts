@@ -77,3 +77,35 @@ export const RESULT_CATEGORIES = [
   'appeal', 'jaw', 'eyes', 'orbitals', 'zygos',
   'harmony', 'nose', 'hair', 'ascension', 'leanmax',
 ] as const;
+
+// Style types — AI chọn đúng 1 loại từ danh sách này khi scan
+export const STYLE_TYPES = [
+  'Thư sinh',
+  'Bad boy',
+  'Soft boy',
+  'Boy phố',
+  'Streetwear',
+  'Clean fit',
+  'Gym boy',
+  'Old money',
+  'Quiet luxury',
+  'Rich kid',
+  'Preppy',
+  'Smart casual',
+  'Casual basic',
+  'Minimalist',
+  'Vintage',
+  'Y2K',
+  'Sporty',
+  'Darkwear',
+  'Techwear',
+  'Grunge',
+  'Punk',
+  'Skater',
+  'Hip-hop',
+  'Indie',
+  'Monochrome',
+  'Street luxury',
+] as const;
+
+export type StyleType = typeof STYLE_TYPES[number];

@@ -36,7 +36,8 @@
           "cameraPermission": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-sharing"
     ]
   }
 }
