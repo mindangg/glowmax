@@ -1,0 +1,41 @@
+# ════════════════════════════════════════════════════════════════
+# Local dev stack: chỉ Postgres (Spring Boot chạy từ IDE/CLI)
+# Usage: docker compose -f docker-compose.dev.yml up -d
+# ════════════════════════════════════════════════════════════════
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: glowmax-postgres-dev
+    environment:
+      POSTGRES_DB: glowmax
+      POSTGRES_USER: glowmax
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glowmax -d glowmax"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # pgAdmin (optional — UI cho debug DB)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: glowmax-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: dev@glowmax.codes
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    profiles:
+      - tools  # chỉ start khi: docker compose --profile tools up
+
+volumes:
+  pg_data:

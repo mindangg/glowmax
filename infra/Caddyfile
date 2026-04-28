@@ -1,0 +1,43 @@
+# Caddy config — auto HTTPS với Let's Encrypt
+# Reload config: docker exec glowmax-caddy caddy reload --config /etc/caddy/Caddyfile
+# Logs: docker logs glowmax-caddy
+
+# Global options
+{
+    # TODO: đổi email — Let's Encrypt sẽ gửi email cảnh báo nếu cert sắp hết hạn / fail renew
+    email admin@glowmax.codes
+
+    # Tự động renew cert (mặc định bật, ghi rõ để biết)
+    # Caddy renew khi còn 1/3 TTL (90 ngày → renew sau 60 ngày)
+}
+
+# TODO: đổi domain thật của bạn (đã trỏ DNS A record về Elastic IP)
+api.glowmax.codes {
+    # Reverse proxy → Spring Boot container (qua Docker network)
+    reverse_proxy api:8080 {
+        # Health check Spring Actuator
+        health_uri /actuator/health
+        health_interval 30s
+    }
+
+    # Compression (giảm bandwidth)
+    encode gzip zstd
+
+    # Security headers (production-grade)
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        # Ẩn server signature
+        -Server
+    }
+
+    # Log requests (debug khi cần)
+    log {
+        output stdout
+        format json
+        level INFO
+    }
+}

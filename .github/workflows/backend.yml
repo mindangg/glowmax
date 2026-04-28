@@ -1,0 +1,170 @@
+# =============================================================================
+# backend.yml — CI/CD cho Spring Boot backend
+# =============================================================================
+# 1 file, 2 jobs:
+#   - test:                Mỗi PR + push main → ./mvnw verify (compile + H2 test)
+#   - build-and-deploy:    Chỉ khi push main + test pass → build ARM64 → ghcr.io → SSH EC2
+#
+# GitHub Secrets cần setup (Settings → Secrets and variables → Actions):
+#   - EC2_HOST       Elastic IP của EC2 (vd 52.74.xxx.xxx)
+#   - EC2_USER       ec2-user
+#   - EC2_SSH_KEY    Private key content (.pem file content full, kể cả header/footer)
+#
+# GitHub repo settings (1-click, không phải workflow):
+#   - Settings → Code security → Dependabot alerts + security updates: ON
+#   - Settings → Code security → Secret scanning: ON
+#   - Settings → Branches → Branch protection cho main:
+#       require PR before merging, require status checks: 'test' job pass
+# =============================================================================
+
+name: backend
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+
+# PR mới push → cancel run cũ đang chạy (tiết kiệm CI minutes)
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # JOB 1: TEST — chạy mỗi PR + push main
+  # ===========================================================================
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: backend     # tất cả lệnh chạy trong backend/
+
+    steps:
+      # TODO: checkout code
+      # - uses: actions/checkout@v4
+
+      # TODO: setup JDK 25 Temurin
+      # - uses: actions/setup-java@v4
+      #   with:
+      #     distribution: 'temurin'
+      #     java-version: '25'
+
+      # TODO: cache Maven dependencies (~/.m2/repository)
+      # Build từ ~7 phút → ~2 phút cho lần sau
+      # - uses: actions/cache@v4
+      #   with:
+      #     path: ~/.m2/repository
+      #     key: ???
+      #     restore-keys: ???
+
+      # TODO: compile + run tests (H2 in-memory, không cần Docker)
+      # - name: Run tests
+      #   run: ./mvnw verify --batch-mode --no-transfer-progress
+
+      # OPTIONAL TODO: upload test report khi fail (debug dễ hơn)
+      # - name: Upload test reports
+      #   if: failure()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: test-reports
+      #     path: backend/target/surefire-reports/
+
+      - name: Skeleton placeholder
+        run: echo "TODO — replace với các steps trên"
+
+  # ===========================================================================
+  # JOB 2: BUILD & DEPLOY — chỉ chạy khi push main + test pass
+  # ===========================================================================
+  build-and-deploy:
+    needs: test                                                     # Đợi test pass mới chạy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # Skip trên PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write     # Cần để push image lên ghcr.io
+
+    # TODO: optional — environment 'production' để require manual approval
+    # environment: production
+
+    steps:
+      # TODO: checkout
+      # - uses: actions/checkout@v4
+
+      # TODO: setup Docker Buildx (cross-build ARM64 trên runner x86)
+      # - uses: docker/setup-buildx-action@v3
+
+      # TODO: setup QEMU emulation cho ARM64 build
+      # - uses: docker/setup-qemu-action@v3
+      #   with:
+      #     platforms: arm64
+
+      # TODO: login ghcr.io qua GITHUB_TOKEN (auto-provided, không cần secret)
+      # - uses: docker/login-action@v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      # TODO: extract metadata (tags + labels)
+      # - id: meta
+      #   uses: docker/metadata-action@v5
+      #   with:
+      #     images: ghcr.io/${{ github.repository_owner }}/glowmax-api
+      #     tags: |
+      #       type=raw,value=latest
+      #       type=sha,prefix=                # tag = git SHA (rollback dùng)
+
+      # TODO: build + push ARM64 image (~5-7 phút lần đầu)
+      # - uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./backend
+      #     platforms: linux/arm64
+      #     push: true
+      #     tags: ${{ steps.meta.outputs.tags }}
+      #     labels: ${{ steps.meta.outputs.labels }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max
+
+      # TODO: SSH vào EC2 → pull image mới → restart api container
+      # docker-compose.prod.yml đã có sẵn trên EC2 (Bước 2 setup)
+      # - uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.EC2_HOST }}
+      #     username: ${{ secrets.EC2_USER }}
+      #     key: ${{ secrets.EC2_SSH_KEY }}
+      #     script: |
+      #       cd /opt/glowmax/infra
+      #       docker compose -f docker-compose.prod.yml pull api
+      #       docker compose -f docker-compose.prod.yml up -d api
+      #       docker image prune -f                   # xóa image cũ tránh đầy disk
+
+      # TODO: health check (retry vì Spring Boot startup ~30s)
+      # - name: Health check
+      #   run: |
+      #     for i in {1..10}; do
+      #       if curl -fsS https://api.glowmax.codes/actuator/health | grep -q '"status":"UP"'; then
+      #         echo "App healthy"
+      #         exit 0
+      #       fi
+      #       echo "Attempt $i failed, retrying in 10s..."
+      #       sleep 10
+      #     done
+      #     echo "Health check failed after 10 attempts"
+      #     exit 1
+
+      # OPTIONAL TODO: notify Discord/Slack khi deploy xong
+      # - name: Notify Discord
+      #   if: always()
+      #   uses: ???
+
+      - name: Skeleton placeholder
+        run: echo "TODO — replace với các steps trên"

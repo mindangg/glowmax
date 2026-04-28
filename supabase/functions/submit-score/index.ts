@@ -86,7 +86,7 @@ serve(async (req) => {
           status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      return new Response(JSON.stringify({ error: profileError.message }), {
+      return new Response(JSON.stringify({ error: 'Profile update failed' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

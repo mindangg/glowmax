@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "GLOWMAX",
+    "slug": "glowmax",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "scheme": "glowmax",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0C0E"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.glowmax.app",
+      "buildNumber": "1",
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "GLOWMAX cần quyền truy cập thư viện ảnh để chọn ảnh phân tích khuôn mặt.",
+        "NSPhotoLibraryAddUsageDescription": "GLOWMAX cần quyền lưu ảnh vào thư viện.",
+        "NSCameraUsageDescription": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0C0E"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.glowmax.app",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GLOWMAX cần quyền truy cập thư viện ảnh để chọn ảnh phân tích khuôn mặt."
+        }
+      ],
+      "expo-web-browser",
+      "expo-sharing",
+      "expo-secure-store",
+      "react-native-purchases",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "GLOWMAX cần quyền truy cập thư viện ảnh để lưu card điểm của bạn.",
+          "savePhotosPermission": "GLOWMAX cần quyền lưu ảnh để lưu card điểm của bạn.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}
