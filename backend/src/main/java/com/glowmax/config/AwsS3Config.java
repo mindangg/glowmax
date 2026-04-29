@@ -34,7 +34,6 @@ public class AwsS3Config {
         //        .region(Region.of(region))
         //        .credentialsProvider(StaticCredentialsProvider.create(
         //            AwsBasicCredentials.create(accessKeyId, secretAccessKey)))
-        //        .build();
-        throw new UnsupportedOperationException("TODO");
+        //        .build();x
     }
 }

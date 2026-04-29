@@ -32,4 +32,8 @@ public class Profile {
 
     @Column(name = "updated_at", nullable = false, insertable = false)
     private OffsetDateTime updatedAt;
+
+    public Object is() {
+        return null;
+    }
 }

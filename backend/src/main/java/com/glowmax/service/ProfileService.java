@@ -1,7 +1,10 @@
 package com.glowmax.service;
 
 import com.glowmax.dto.ProfileDtos.ProfileResponse;
+import com.glowmax.entity.Profile;
+import com.glowmax.exception.BusinessException;
 import com.glowmax.repository.ProfileRepository;
+import com.glowmax.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,7 +19,13 @@ import java.util.UUID;
 public class ProfileService {
 
     private final ProfileRepository profileRepository;
-    // TODO: inject UserRepository, S3Service (cho deleteAccount)
+    private final UserRepository userRepository;
+    private final S3Service s3Service;
+
+    private ProfileResponse toResponse(Profile profile) {
+        return new ProfileResponse(profile.getId(), profile.getUsername(),
+                profile.isAnonymous(), profile.getCreatedAt());
+    }
 
     /**
      * Tạo profile mặc định cho anonymous user mới.
@@ -24,19 +33,31 @@ public class ProfileService {
      */
     @Transactional
     public ProfileResponse createDefault(UUID userId) {
-        // TODO: generate username "user_" + UUID.randomUUID().toString().substring(0, 8)
-        //  Build Profile{id=userId, username, anonymous=true} → save
-        throw new UnsupportedOperationException("TODO");
+        Profile profile = Profile.builder()
+                .id(userId)
+                .username("user_" + userId.toString().substring(0, 8))
+                .anonymous(true)
+                .build();
+        profileRepository.save(profile);
+
+        return toResponse(profile);
     }
 
     @Transactional
     public ProfileResponse updateUsername(UUID userId, String newUsername) {
-        // TODO:
-        //  1. Check availability (existsByUsernameIgnoreCase) → throw conflict nếu trùng
-        //  2. profileRepository.findById(userId).orElseThrow(notFound)
-        //  3. setUsername, setAnonymous(false) (nếu trước anonymous thì giờ "claimed" username)
-        //  4. save
-        throw new UnsupportedOperationException("TODO");
+        var existUsername = profileRepository.existsByUsernameIgnoreCase(newUsername);
+        if (existUsername) {
+            throw BusinessException.badRequest("USERNAME_TAKEN", "Username is already in use");
+        }
+
+        var profile = profileRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("USER_NOT_FOUND", "User not found"));
+
+        profile.setUsername(newUsername);
+        profile.setAnonymous(false);
+        profileRepository.save(profile);
+
+        return toResponse(profile);
     }
 
     public boolean isUsernameAvailable(String username) {
@@ -44,8 +65,10 @@ public class ProfileService {
     }
 
     public ProfileResponse getMine(UUID userId) {
-        // TODO: findById → map ProfileResponse
-        throw new UnsupportedOperationException("TODO");
+        var profile = profileRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("USER_NOT_FOUND", "User not found"));
+
+        return toResponse(profile);
     }
 
     /**
@@ -53,9 +76,7 @@ public class ProfileService {
      */
     @Transactional
     public void deleteAccount(UUID userId) {
-        // TODO:
-        //  1. s3Service.deleteAvatar(userId) (best-effort, ignore nếu không có)
-        //  2. userRepository.deleteById(userId) → CASCADE xoá profile, user_scores, refresh_tokens
-        throw new UnsupportedOperationException("TODO");
+        s3Service.deleteAvatar(userId);
+        userRepository.deleteById(userId);
     }
 }

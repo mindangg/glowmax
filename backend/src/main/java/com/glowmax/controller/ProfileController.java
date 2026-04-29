@@ -27,8 +27,7 @@ public class ProfileController {
     @GetMapping("/check-username")
     public ResponseEntity<UsernameAvailabilityResponse> checkUsername(
             @RequestParam @NotBlank String username) {
-        // TODO: return ok(new UsernameAvailabilityResponse(username, profileService.isUsernameAvailable(username)))
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.ok(new UsernameAvailabilityResponse(username, profileService.isUsernameAvailable(username)));
     }
 
     /**
@@ -36,8 +35,7 @@ public class ProfileController {
      */
     @GetMapping("/me")
     public ResponseEntity<ProfileResponse> getMine(@AuthenticationPrincipal String userIdStr) {
-        // TODO: profileService.getMine(UUID.fromString(userIdStr))
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.ok(profileService.getMine(UUID.fromString(userIdStr)));
     }
 
     /**
@@ -46,8 +44,7 @@ public class ProfileController {
     @PutMapping("/me")
     public ResponseEntity<ProfileResponse> updateMine(@AuthenticationPrincipal String userIdStr,
                                                        @Valid @RequestBody UpsertProfileRequest body) {
-        // TODO: profileService.updateUsername(UUID.fromString(userIdStr), body.username())
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.ok(profileService.updateUsername(UUID.fromString(userIdStr), body.username()));
     }
 
     /**
@@ -55,7 +52,7 @@ public class ProfileController {
      */
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteMine(@AuthenticationPrincipal String userIdStr) {
-        // TODO: profileService.deleteAccount(UUID.fromString(userIdStr)); return noContent
-        throw new UnsupportedOperationException("TODO");
+        profileService.deleteAccount(UUID.fromString(userIdStr));
+        return ResponseEntity.noContent().build();
     }
 }

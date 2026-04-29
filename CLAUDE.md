@@ -140,7 +140,11 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=...
 
 **Stack:** Spring Boot 4.0.6 + Java 25 + Maven, PostgreSQL 16 + Flyway, Spring Security stateless + JWT (jjwt 0.12) + nimbus-jose-jwt (Google/Apple ID token verification), Bucket4j in-memory rate limiting, AWS SDK v2 (S3 avatars) + Thumbnailator, Lombok + Java 25 Records.
 
-**Status:** Skeleton with TODOs — structure and entities are complete; service/controller logic needs implementing as Supabase is migrated.
+**Implementation status:**
+- ✅ **Implemented:** `JwtUtil`, `JwtFilter`, `SecurityConfig`, `GlobalExceptionHandler`, `AuthService` (anonymous + Google OAuth + refresh + revoke)
+- 🔲 **Skeleton:** `ProfileService`, `ProfileController`, `AuthController`, `LeaderboardService`, `LeaderboardController`, `AnalyzeService`, `AnalyzeController`, `RateLimitService`, `S3Service`, `AvatarController`, `WebClientConfig`, `AwsS3Config`
+
+Mobile app sends Google `id_token` directly (via `expo-auth-session`) — backend verifies via nimbus-jose JWKS, no server-side code exchange needed.
 
 ### API Endpoints
 
@@ -156,9 +160,9 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=...
 
 ```
 backend/src/main/java/com/glowmax/
-├── config/           SecurityConfig (JWT filter chain + CORS), WebClientConfig, AwsS3Config
-├── controller/       REST controllers (skeletons with TODO guidance)
-├── service/          Business logic (AuthService, JwtUtil, OpenAiService, S3Service, RateLimitService, ...)
+├── config/           SecurityConfig ✅, WebClientConfig 🔲, AwsS3Config 🔲
+├── controller/       REST controllers — all 🔲 skeleton
+├── service/          AuthService ✅, JwtUtil ✅ | ProfileService 🔲, LeaderboardService 🔲, AnalyzeService 🔲, OpenAiService 🔲, RateLimitService 🔲, S3Service 🔲
 ├── repository/       Spring Data JPA (UserRepository, UserScoreRepository with leaderboard rank() queries)
 ├── entity/           User, Profile, UserScore (JPA entities)
 ├── dto/              Java 25 Records (AuthDtos, ProfileDtos, LeaderboardDtos, AnalyzeDtos)

@@ -35,15 +35,13 @@ public class RateLimitService {
      * @param window   Thời gian refill toàn bộ bucket
      */
     public void checkOrThrow(String key, int capacity, Duration window) {
-        // TODO:
-        //  Bucket bucket = cache.computeIfAbsent(key, k ->
-        //      Bucket.builder()
-        //          .addLimit(Bandwidth.simple(capacity, window))
-        //          .build());
-        //  if (!bucket.tryConsume(1)) {
-        //      throw BusinessException.tooManyRequests("RATE_LIMIT",
-        //          "Bạn đang thao tác quá nhanh, vui lòng thử lại sau");
-        //  }
-        throw new UnsupportedOperationException("TODO");
+          Bucket bucket = cache.computeIfAbsent(key, k ->
+              Bucket.builder()
+                  .addLimit(Bandwidth.builder().capacity(capacity).refillGreedy(capacity, window).build())
+                  .build());
+          if (!bucket.tryConsume(1)) {
+              throw BusinessException.tooManyRequests("RATE_LIMIT",
+                  "Bạn đang thao tác quá nhanh, vui lòng thử lại sau");
+          }
     }
 }
