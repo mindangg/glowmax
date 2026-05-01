@@ -3,7 +3,12 @@ package com.glowmax.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
+
+import java.time.Duration;
 
 /**
  * WebClient bean cho gọi OpenAI.
@@ -22,11 +27,12 @@ public class WebClientConfig {
 
     @Bean(name = "openAiWebClient")
     public WebClient openAiWebClient() {
-        // TODO:
-        //  - baseUrl(openAiBaseUrl)
-        //  - defaultHeader(AUTHORIZATION, "Bearer " + openAiApiKey)
-        //  - clientConnector with HttpClient.responseTimeout(Duration.ofSeconds(timeoutSeconds))
-        //  - codecs configurer: maxInMemorySize 10MB (cho large vision response)
-        throw new UnsupportedOperationException("TODO");
+       HttpClient httpClient = HttpClient.create().responseTimeout(Duration.ofSeconds(timeoutSeconds));
+       return WebClient.builder()
+               .baseUrl(openAiBaseUrl)
+               .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + openAiApiKey)
+               .clientConnector(new ReactorClientHttpConnector(httpClient))
+               .codecs(c -> c.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
+               .build();
     }
 }

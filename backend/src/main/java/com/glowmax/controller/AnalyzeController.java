@@ -1,14 +1,21 @@
 package com.glowmax.controller;
 
-import com.glowmax.dto.AnalyzeDtos.*;
+import com.glowmax.dto.AnalyzeDtos.AnalyzeRequest;
+import com.glowmax.dto.AnalyzeDtos.FullAnalysisResponse;
+import com.glowmax.dto.AnalyzeDtos.TrialScanRequest;
+import com.glowmax.dto.AnalyzeDtos.TrialScanResponse;
 import com.glowmax.service.AnalyzeService;
 import com.glowmax.service.RateLimitService;
+import com.glowmax.util.WebUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -30,10 +37,8 @@ public class AnalyzeController {
     public ResponseEntity<FullAnalysisResponse> analyzeFull(
             @AuthenticationPrincipal String userIdStr,
             @Valid @RequestBody AnalyzeRequest body) {
-        // TODO:
-        //  rateLimit.checkOrThrow("analyze:" + userIdStr, 10, Duration.ofHours(1));
-        //  return ok(analyzeService.analyze(UUID.fromString(userIdStr), body));
-        throw new UnsupportedOperationException("TODO");
+        rateLimit.checkOrThrow("analyze:" + userIdStr, 10, Duration.ofHours(1));
+        return ResponseEntity.ok(analyzeService.analyze(UUID.fromString(userIdStr), body));
     }
 
     /**
@@ -45,11 +50,9 @@ public class AnalyzeController {
             HttpServletRequest request,
             @AuthenticationPrincipal String userIdStr,
             @Valid @RequestBody TrialScanRequest body) {
-        // TODO:
-        //  String ip = extractClientIp(request);
-        //  rateLimit.checkOrThrow("trial:" + ip, 3, Duration.of(1, ChronoUnit.DAYS));
-        //  UUID userId = userIdStr != null ? UUID.fromString(userIdStr) : null;
-        //  return ok(analyzeService.trialScan(userId, body));
-        throw new UnsupportedOperationException("TODO");
+        String ip = WebUtil.extractClientIp(request);
+        rateLimit.checkOrThrow("trial:" + ip, 3, Duration.of(1, ChronoUnit.DAYS));
+        UUID userId = userIdStr != null ? UUID.fromString(userIdStr) : null;
+        return ResponseEntity.ok(analyzeService.trialScan(userId, body));
     }
 }

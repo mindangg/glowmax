@@ -32,8 +32,7 @@ public class LeaderboardController {
     @GetMapping("/leaderboard")
     public ResponseEntity<LeaderboardPageResponse> getLeaderboard(
             @PageableDefault(size = 100) Pageable pageable) {
-        // TODO: ok(leaderboardService.getTopRanked(pageable))
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.ok(leaderboardService.getTopRanked(pageable));
     }
 
     /**
@@ -43,8 +42,7 @@ public class LeaderboardController {
     public ResponseEntity<LeaderboardPageResponse> search(
             @RequestParam @NotBlank @Size(min = 1, max = 30) String q,
             @PageableDefault(size = 20) Pageable pageable) {
-        // TODO: leaderboardService.search(q, pageable)
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.ok(leaderboardService.search(q, pageable));
     }
 
     /**
@@ -55,9 +53,8 @@ public class LeaderboardController {
     public ResponseEntity<SubmitScoreResponse> submitScore(
             @AuthenticationPrincipal String userIdStr,
             @Valid @RequestBody SubmitScoreRequest body) {
-        // TODO:
-        //  rateLimit.checkOrThrow("score:" + userIdStr, 30, Duration.ofHours(1));
-        //  return ok(leaderboardService.submitScore(UUID.fromString(userIdStr), body));
-        throw new UnsupportedOperationException("TODO");
+
+        rateLimit.checkOrThrow("score:" + userIdStr, 30, Duration.ofHours(1));
+        return ResponseEntity.ok(leaderboardService.submitScore(UUID.fromString(userIdStr), body));
     }
 }

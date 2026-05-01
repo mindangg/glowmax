@@ -3,6 +3,7 @@ package com.glowmax.controller;
 import com.glowmax.dto.AuthDtos.*;
 import com.glowmax.service.AuthService;
 import com.glowmax.service.RateLimitService;
+import com.glowmax.util.WebUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,16 +26,10 @@ public class AuthController {
      * Tạo anonymous user mới + cấp tokens. Gọi từ app boot.
      * Rate limit: 5 / IP / phút (chống bot tạo account hàng loạt).
      */
-    private String extractClientIp(HttpServletRequest request) {
-        if (request.getHeader("X-Forwarded-For") != null) {
-            return request.getHeader("X-Forwarded-For").split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 
     @PostMapping("/anonymous")
     public ResponseEntity<AnonymousAuthResponse> createAnonymous(HttpServletRequest request) {
-        String ip = extractClientIp(request);
+        String ip = WebUtil.extractClientIp(request);
         rateLimit.checkOrThrow("anon:" + ip, 5, Duration.ofMinutes(1));
         return ResponseEntity.ok(authService.createAnonymous());
     }

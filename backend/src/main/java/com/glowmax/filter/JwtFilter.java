@@ -1,6 +1,6 @@
 package com.glowmax.filter;
 
-import com.glowmax.service.JwtUtil;
+import com.glowmax.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

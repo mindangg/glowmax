@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 glowmax/
 ├── frontend/          React Native + Expo (app/, hooks/, lib/, components/, types/)
-├── backend/           Spring Boot 4.0 + Java 25 (skeleton — services/controllers need implementing)
+├── backend/           Spring Boot 4.0 + Java 25 (controllers done; services still need implementing)
 ├── infra/             AWS infra docs, Caddy config, docker-compose.prod.yml
 ├── supabase/          [LEGACY] Edge Functions + migrations; being replaced by backend/
 ├── .github/workflows/ backend.yml — CI/CD (test + build-and-deploy to EC2)
@@ -141,8 +141,8 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=...
 **Stack:** Spring Boot 4.0.6 + Java 25 + Maven, PostgreSQL 16 + Flyway, Spring Security stateless + JWT (jjwt 0.12) + nimbus-jose-jwt (Google/Apple ID token verification), Bucket4j in-memory rate limiting, AWS SDK v2 (S3 avatars) + Thumbnailator, Lombok + Java 25 Records.
 
 **Implementation status:**
-- ✅ **Implemented:** `JwtUtil`, `JwtFilter`, `SecurityConfig`, `GlobalExceptionHandler`, `AuthService` (anonymous + Google OAuth + refresh + revoke)
-- 🔲 **Skeleton:** `ProfileService`, `ProfileController`, `AuthController`, `LeaderboardService`, `LeaderboardController`, `AnalyzeService`, `AnalyzeController`, `RateLimitService`, `S3Service`, `AvatarController`, `WebClientConfig`, `AwsS3Config`
+- ✅ **Implemented:** `JwtUtil`, `JwtFilter`, `SecurityConfig`, `GlobalExceptionHandler`, `AuthService`, `RateLimitService` (Bucket4j in-memory), `WebClientConfig`, `AwsS3Config`, `AuthController`, `ProfileController`, `LeaderboardController`, `AnalyzeController`, `AvatarController`
+- 🔲 **Skeleton (needs implementing):** `ProfileService`, `LeaderboardService`, `AnalyzeService`, `S3Service`
 
 Mobile app sends Google `id_token` directly (via `expo-auth-session`) — backend verifies via nimbus-jose JWKS, no server-side code exchange needed.
 
@@ -160,13 +160,14 @@ Mobile app sends Google `id_token` directly (via `expo-auth-session`) — backen
 
 ```
 backend/src/main/java/com/glowmax/
-├── config/           SecurityConfig ✅, WebClientConfig 🔲, AwsS3Config 🔲
-├── controller/       REST controllers — all 🔲 skeleton
-├── service/          AuthService ✅, JwtUtil ✅ | ProfileService 🔲, LeaderboardService 🔲, AnalyzeService 🔲, OpenAiService 🔲, RateLimitService 🔲, S3Service 🔲
+├── config/           SecurityConfig ✅, WebClientConfig ✅, AwsS3Config ✅
+├── controller/       All implemented ✅ (Auth, Profile, Leaderboard, Analyze, Avatar)
+├── service/          AuthService ✅, JwtUtil ✅, RateLimitService ✅ | ProfileService 🔲, LeaderboardService 🔲, AnalyzeService 🔲, OpenAiService 🔲, S3Service 🔲
 ├── repository/       Spring Data JPA (UserRepository, UserScoreRepository with leaderboard rank() queries)
 ├── entity/           User, Profile, UserScore (JPA entities)
 ├── dto/              Java 25 Records (AuthDtos, ProfileDtos, LeaderboardDtos, AnalyzeDtos)
 ├── filter/           JwtFilter (OncePerRequestFilter)
+├── util/             WebUtils.extractClientIp() — static HTTP utilities (no Spring bean)
 └── exception/        BusinessException (static factories) + GlobalExceptionHandler (RFC 7807 ProblemDetail)
 
 backend/src/main/resources/

@@ -1,4 +1,4 @@
-package com.glowmax.service;
+package com.glowmax.util;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
