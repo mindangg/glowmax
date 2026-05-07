@@ -31,7 +31,7 @@ public class AnalyzeController {
 
     /**
      * POST /api/v1/analyze/full
-     * Rate limit: 10/giờ/user (OpenAI tốn $$).
+     * Rate limit: 10/giờ/user
      */
     @PostMapping("/full")
     public ResponseEntity<FullAnalysisResponse> analyzeFull(
