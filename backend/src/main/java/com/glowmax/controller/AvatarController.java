@@ -1,7 +1,7 @@
 package com.glowmax.controller;
 
+import com.glowmax.annotation.RateLimit;
 import com.glowmax.exception.BusinessException;
-import com.glowmax.service.RateLimitService;
 import com.glowmax.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,18 +25,17 @@ import java.util.UUID;
 public class AvatarController {
 
     private final S3Service s3Service;
-    private final RateLimitService rateLimit;
 
     /**
      * POST /api/v1/avatars (multipart/form-data, field "file")
      * Max size 5MB (config qua spring.servlet.multipart.max-file-size).
      * Rate limit: 10/giờ/user.
      */
+    @RateLimit(capacity = 10, window = 1, unit = ChronoUnit.HOURS, keyType = RateLimit.KeyType.USER, keyPrefix = "avatar")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadAvatar(
             @AuthenticationPrincipal String userIdStr,
             @RequestParam("file") MultipartFile file) throws IOException {
-        rateLimit.checkOrThrow("avatar:" + userIdStr, 10, Duration.ofHours(1));
 
         if (file.isEmpty())
             throw BusinessException.badRequest("FILE_EMPTY", "file is empty");

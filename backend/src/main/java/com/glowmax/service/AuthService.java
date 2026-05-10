@@ -26,6 +26,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Auth service — gộp anonymous + OAuth + refresh + logout (lean v2).
@@ -52,6 +53,9 @@ public class AuthService {
 
     @Value("${glowmax.oauth.google.client-secret}")
     private String googleClientSecret;
+
+    @Value("${glowmax.oauth.apple.client-id}")
+    private String appleClientId;
 
     // ─── Anonymous ───────────────────────────────────────────────
 
@@ -86,40 +90,58 @@ public class AuthService {
     
 
     public AuthResponse handleOAuthCallback(String provider, OAuthCallbackRequest req) {
-        if (!"google".equals(provider)) {
-            throw BusinessException.badRequest("UNSUPPORTED_PROVIDER", "Provider not supported: " + provider);
-        }
+        // Verify id_token theo từng provider → lấy sub + email
+        final String sub;
+        final String email;
 
-        // Mobile app gửi id_token thẳng qua field `code` (đã verify với Google trên client)
-        GoogleClaims claims = verifyGoogleIdToken(req.code());
+        switch (provider) {
+            case "google" -> {
+                GoogleClaims gc = verifyGoogleIdToken(req.idToken());
+                sub   = gc.sub();
+                email = gc.email();
+            }
+            case "apple" -> {
+                AppleClaims ac = verifyAppleIdToken(req.idToken());
+                sub   = ac.sub();
+                email = ac.email(); // null khi user đã sign-in trước đó (Apple chỉ trả email lần đầu)
+            }
+            default -> throw BusinessException.badRequest("UNSUPPORTED_PROVIDER", "Provider not supported: " + provider);
+        }
 
         // 1. Tìm user theo (provider, sub) — đã link trước đó
-        Optional<User> existing = userRepository
-                .findByOauthProviderAndOauthProviderUserId("google", claims.sub());
-
+        Optional<User> existing = userRepository.findByOauthProviderAndOauthProviderUserId(provider, sub);
         if (existing.isPresent()) {
-            return issueTokensForOAuth(existing.get());
+            User user = existing.get();
+            // Apple chỉ trả email lần đầu; lưu lại nếu chưa có
+            if (email != null && user.getEmail() == null) {
+                user.setEmail(email);
+                userRepository.save(user);
+            }
+            return issueTokensForOAuth(user);
         }
 
-        // 2. Có anonymousAccessToken → link anonymous user thành OAuth user
-        if (req.anonymousAccessToken() != null && !req.anonymousAccessToken().isBlank()) {
-            JwtUtil.Claims anonClaims = jwtUtil.parseAndValidate(req.anonymousAccessToken());
-            User anonUser = userRepository.findById(anonClaims.userId())
-                    .orElseThrow(() -> BusinessException.notFound("USER_NOT_FOUND", "Anonymous user not found"));
+        // 2. Có anonymousUserId → link anonymous user thành OAuth user
+        if (req.anonymousUserId() != null && !req.anonymousUserId().isBlank()) {
+            try {
+                UUID anonId = UUID.fromString(req.anonymousUserId());
+                User anonUser = userRepository.findById(anonId)
+                        .orElseThrow(() -> BusinessException.notFound("USER_NOT_FOUND", "Anonymous user not found"));
 
-            anonUser.setEmail(claims.email());
-            anonUser.setOauthProvider("google");
-            anonUser.setOauthProviderUserId(claims.sub());
-            anonUser.setAnonymous(false);
-            User linked = userRepository.save(anonUser);
-            return issueTokensForOAuth(linked);
+                anonUser.setEmail(email);
+                anonUser.setOauthProvider(provider);
+                anonUser.setOauthProviderUserId(sub);
+                anonUser.setAnonymous(false);
+                return issueTokensForOAuth(userRepository.save(anonUser));
+            } catch (IllegalArgumentException ignored) {
+                // anonymousUserId không phải UUID hợp lệ → bỏ qua, tạo user mới
+            }
         }
 
         // 3. Tạo user mới + profile mặc định
         User newUser = userRepository.save(User.builder()
-                .email(claims.email())
-                .oauthProvider("google")
-                .oauthProviderUserId(claims.sub())
+                .email(email)
+                .oauthProvider(provider)
+                .oauthProviderUserId(sub)
                 .anonymous(false)
                 .build());
         profileService.createDefault(newUser.getId());
@@ -127,6 +149,8 @@ public class AuthService {
     }
 
     public String buildOAuthAuthorizationUrl(String provider, String state) {
+        // Endpoint này chỉ dùng cho Google web flow.
+        // Apple Sign-In trên mobile dùng native SDK (expo-apple-authentication) — không cần URL.
         if (!"google".equals(provider)) {
             throw BusinessException.badRequest("UNSUPPORTED_PROVIDER", "Provider not supported: " + provider);
         }
@@ -143,6 +167,7 @@ public class AuthService {
     // ─── OAuth helpers ───────────────────────────────────────────
 
     private record GoogleClaims(String sub, String email) {}
+    private record AppleClaims(String sub, String email) {}
 
     private GoogleClaims verifyGoogleIdToken(String idToken) {
         try {
@@ -168,6 +193,32 @@ public class AuthService {
         } catch (Exception e) {
             log.warn("Failed to verify Google ID token", e);
             throw BusinessException.unauthorized("INVALID_OAUTH_TOKEN", "Invalid Google ID token");
+        }
+    }
+
+    private AppleClaims verifyAppleIdToken(String idToken) {
+        try {
+            JWKSource<SecurityContext> keySource = JWKSourceBuilder
+                    .create(URI.create("https://appleid.apple.com/auth/keys").toURL())
+                    .build();
+            ConfigurableJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
+            processor.setJWSKeySelector(new JWSVerificationKeySelector<>(JWSAlgorithm.RS256, keySource));
+            JWTClaimsSet claims = processor.process(idToken, null);
+
+            if (!"https://appleid.apple.com".equals(claims.getIssuer())) {
+                throw BusinessException.unauthorized("INVALID_OAUTH_TOKEN", "Invalid issuer");
+            }
+            if (!claims.getAudience().contains(appleClientId)) {
+                throw BusinessException.unauthorized("INVALID_OAUTH_TOKEN", "Invalid audience");
+            }
+
+            // Apple chỉ trả email ở lần đăng nhập đầu tiên; những lần sau email = null
+            return new AppleClaims(claims.getSubject(), claims.getStringClaim("email"));
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Failed to verify Apple ID token", e);
+            throw BusinessException.unauthorized("INVALID_OAUTH_TOKEN", "Invalid Apple ID token");
         }
     }
 

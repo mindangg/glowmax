@@ -11,9 +11,9 @@ public final class AuthDtos {
     // ═══ Request ═══
 
     public record OAuthCallbackRequest(
-            @NotBlank String code,
-            @NotBlank String state,
-            String anonymousAccessToken      // optional: link anon → OAuth account
+            @NotBlank String idToken,        // id_token từ Google / Apple SDK (JSON: id_token)
+            String state,                    // optional — chỉ dùng trong web flow
+            String anonymousUserId           // optional UUID: link anon → OAuth account (JSON: anonymous_user_id)
     ) {}
 
     public record RefreshTokenRequest(@NotBlank String refreshToken) {}

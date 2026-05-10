@@ -1,16 +1,14 @@
 package com.glowmax.controller;
 
+import com.glowmax.annotation.RateLimit;
 import com.glowmax.dto.AuthDtos.*;
 import com.glowmax.service.AuthService;
-import com.glowmax.service.RateLimitService;
-import com.glowmax.util.WebUtil;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @RestController
@@ -19,18 +17,15 @@ import java.util.UUID;
 public class AuthController {
 
     private final AuthService authService;
-    private final RateLimitService rateLimit;
 
     /**
      * POST /api/v1/auth/anonymous
      * Tạo anonymous user mới + cấp tokens. Gọi từ app boot.
      * Rate limit: 5 / IP / phút (chống bot tạo account hàng loạt).
      */
-
+    @RateLimit(capacity = 5, window = 1, unit = ChronoUnit.MINUTES, keyType = RateLimit.KeyType.IP, keyPrefix = "anon")
     @PostMapping("/anonymous")
-    public ResponseEntity<AnonymousAuthResponse> createAnonymous(HttpServletRequest request) {
-        String ip = WebUtil.extractClientIp(request);
-        rateLimit.checkOrThrow("anon:" + ip, 5, Duration.ofMinutes(1));
+    public ResponseEntity<AnonymousAuthResponse> createAnonymous() {
         return ResponseEntity.ok(authService.createAnonymous());
     }
 

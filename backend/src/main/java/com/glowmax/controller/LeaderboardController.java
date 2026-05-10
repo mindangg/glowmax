@@ -1,8 +1,8 @@
 package com.glowmax.controller;
 
+import com.glowmax.annotation.RateLimit;
 import com.glowmax.dto.LeaderboardDtos.*;
 import com.glowmax.service.LeaderboardService;
-import com.glowmax.service.RateLimitService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -14,7 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @RestController
@@ -24,7 +24,6 @@ import java.util.UUID;
 public class LeaderboardController {
 
     private final LeaderboardService leaderboardService;
-    private final RateLimitService rateLimit;
 
     /**
      * GET /api/v1/leaderboard?page=0&size=100 — public.
@@ -49,12 +48,11 @@ public class LeaderboardController {
      * POST /api/v1/scores — submit score. Require auth, KHÔNG cho anonymous.
      * Rate limit: 30/giờ/user.
      */
+    @RateLimit(capacity = 30, window = 1, unit = ChronoUnit.HOURS, keyType = RateLimit.KeyType.USER, keyPrefix = "score")
     @PostMapping("/scores")
     public ResponseEntity<SubmitScoreResponse> submitScore(
             @AuthenticationPrincipal String userIdStr,
             @Valid @RequestBody SubmitScoreRequest body) {
-
-        rateLimit.checkOrThrow("score:" + userIdStr, 30, Duration.ofHours(1));
         return ResponseEntity.ok(leaderboardService.submitScore(UUID.fromString(userIdStr), body));
     }
 }

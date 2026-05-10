@@ -99,6 +99,12 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- ─── AOP (cho @RateLimit annotation) ─── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
         <!-- ─── Rate limiting (in-memory) ─── -->
         <dependency>
             <groupId>com.bucket4j</groupId>

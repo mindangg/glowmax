@@ -1,13 +1,11 @@
 package com.glowmax.controller;
 
+import com.glowmax.annotation.RateLimit;
 import com.glowmax.dto.AnalyzeDtos.AnalyzeRequest;
 import com.glowmax.dto.AnalyzeDtos.FullAnalysisResponse;
 import com.glowmax.dto.AnalyzeDtos.TrialScanRequest;
 import com.glowmax.dto.AnalyzeDtos.TrialScanResponse;
 import com.glowmax.service.AnalyzeService;
-import com.glowmax.service.RateLimitService;
-import com.glowmax.util.WebUtil;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
@@ -27,17 +24,16 @@ import java.util.UUID;
 public class AnalyzeController {
 
     private final AnalyzeService analyzeService;
-    private final RateLimitService rateLimit;
 
     /**
      * POST /api/v1/analyze/full
      * Rate limit: 10/giờ/user
      */
+    @RateLimit(capacity = 10, window = 1, unit = ChronoUnit.HOURS, keyType = RateLimit.KeyType.USER, keyPrefix = "analyze")
     @PostMapping("/full")
     public ResponseEntity<FullAnalysisResponse> analyzeFull(
             @AuthenticationPrincipal String userIdStr,
             @Valid @RequestBody AnalyzeRequest body) {
-        rateLimit.checkOrThrow("analyze:" + userIdStr, 10, Duration.ofHours(1));
         return ResponseEntity.ok(analyzeService.analyze(UUID.fromString(userIdStr), body));
     }
 
@@ -45,13 +41,11 @@ public class AnalyzeController {
      * POST /api/v1/analyze/trial
      * Public-ish — anonymous user gọi được. Rate limit: 3/ngày/IP.
      */
+    @RateLimit(capacity = 3, window = 1, unit = ChronoUnit.DAYS, keyType = RateLimit.KeyType.IP, keyPrefix = "trial")
     @PostMapping("/trial")
     public ResponseEntity<TrialScanResponse> trialScan(
-            HttpServletRequest request,
             @AuthenticationPrincipal String userIdStr,
             @Valid @RequestBody TrialScanRequest body) {
-        String ip = WebUtil.extractClientIp(request);
-        rateLimit.checkOrThrow("trial:" + ip, 3, Duration.of(1, ChronoUnit.DAYS));
         UUID userId = userIdStr != null ? UUID.fromString(userIdStr) : null;
         return ResponseEntity.ok(analyzeService.trialScan(userId, body));
     }
