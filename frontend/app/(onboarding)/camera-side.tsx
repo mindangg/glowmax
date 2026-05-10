@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Camera, useCameraPermission, useCameraDevice } from 'react-native-vision-camera';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   useSharedValue,
@@ -17,7 +17,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from 'react-native-reanimated';
-import Svg, {Rect, Circle, Path} from 'react-native-svg';
+import Svg, { Rect, Circle, Path } from 'react-native-svg';
 import TrailBackground from '../../components/backgrounds/TrailBackground';
 import BackArrow from '../../components/ui/BackArrow';
 import FrostedButton from '../../components/ui/FrostedButton';
@@ -25,22 +25,23 @@ import { usePhotoCapture } from '../../hooks/usePhotoCapture';
 import { COLORS, FONTS } from '../../lib/constants';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-
 const VW = SW - 32;
 const TOP_SECTION_H = 148;
 const BOTTOM_SECTION_H = 136;
 const SAFE_H = 56 + 36;
 const VH = Math.min(VW * (4 / 3), SH - TOP_SECTION_H - BOTTOM_SECTION_H - SAFE_H);
 
-
 export default function CameraSideScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const fromPremium = from === 'premium';
-  const [permission, requestPermission] = useCameraPermissions();
+
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const device = useCameraDevice(facing);
+
   const { cameraRef, sidePhoto, capturePhoto, retakePhoto, importPhoto } = usePhotoCapture();
   const [isCapturing, setIsCapturing] = useState(false);
-  const [facing, setFacing] = useState<'front' | 'back'>('front');
 
   const uiOpacity = useSharedValue(0);
   useEffect(() => {
@@ -49,8 +50,8 @@ export default function CameraSideScreen() {
   const uiStyle = useAnimatedStyle(() => ({ opacity: uiOpacity.value }));
 
   useEffect(() => {
-    if (!permission?.granted) requestPermission();
-  }, [permission]);
+    if (!hasPermission) requestPermission();
+  }, [hasPermission]);
 
   const handleCapture = async () => {
     if (isCapturing) return;
@@ -78,12 +79,10 @@ export default function CameraSideScreen() {
   };
 
   const handleContinue = () => {
-    // Premium rescan skips the "complete" confirmation and goes straight to scan animation.
-    // Non-premium first-time scan goes through the complete screen.
     router.push(fromPremium ? '/(main)/scan' : '/(onboarding)/complete');
   };
 
-  if (!permission?.granted) {
+  if (!hasPermission) {
     return (
       <TrailBackground>
         <View style={styles.permissionContainer}>
@@ -141,9 +140,15 @@ export default function CameraSideScreen() {
         <View style={styles.viewfinderWrapper}>
           {sidePhoto ? (
             <Image source={{ uri: sidePhoto }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-          ) : (
-            <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing={facing} />
-          )}
+          ) : device ? (
+            <Camera
+              ref={cameraRef}
+              style={StyleSheet.absoluteFillObject}
+              device={device}
+              isActive={true}
+              photo={true}
+            />
+          ) : null}
 
           {/* SIDE label pill */}
           <View style={styles.labelPill}>

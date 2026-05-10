@@ -9,38 +9,38 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import {
+  Camera,
+  useCameraPermission,
+  useCameraDevice,
+} from 'react-native-vision-camera';
+import { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-} from 'react-native-reanimated';
-import Svg, {Rect, Circle, Path} from 'react-native-svg';
+import Svg, { Rect, Circle, Path } from 'react-native-svg';
 import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { usePhotoCapture } from '../../hooks/usePhotoCapture';
 import { COLORS, FONTS } from '../../lib/constants';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-
-// Viewfinder fills available space, capped at 3:4 ratio
 const VW = SW - 32;
-const TOP_SECTION_H = 148;   // title + badges
-const BOTTOM_SECTION_H = 136; // dots + button + spacing
+const TOP_SECTION_H = 148;
+const BOTTOM_SECTION_H = 136;
 const SAFE_H = 56 + 36;
 const VH = Math.min(VW * (4 / 3), SH - TOP_SECTION_H - BOTTOM_SECTION_H - SAFE_H);
-
 
 export default function CameraScreen() {
   const router = useRouter();
   const { from } = useLocalSearchParams<{ from?: string }>();
   const fromPremium = from === 'premium';
-  const [permission, requestPermission] = useCameraPermissions();
+
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const device = useCameraDevice(facing);
+
   const { cameraRef, frontPhoto, capturePhoto, retakePhoto, importPhoto } = usePhotoCapture();
   const [isCapturing, setIsCapturing] = useState(false);
-  const [facing, setFacing] = useState<'front' | 'back'>('front');
 
   const uiOpacity = useSharedValue(0);
   useEffect(() => {
@@ -49,8 +49,8 @@ export default function CameraScreen() {
   const uiStyle = useAnimatedStyle(() => ({ opacity: uiOpacity.value }));
 
   useEffect(() => {
-    if (!permission?.granted) requestPermission();
-  }, [permission]);
+    if (!hasPermission) requestPermission();
+  }, [hasPermission]);
 
   const handleCapture = async () => {
     if (isCapturing) return;
@@ -58,7 +58,7 @@ export default function CameraScreen() {
     const result = await capturePhoto('front');
     setIsCapturing(false);
     if (!result.ok) {
-      Alert.alert('Không phát hiện khuôn mặt', result.error ?? 'Vui lòng thử lại.');
+      Alert.alert('Lỗi', result.error ?? 'Không thể chụp ảnh. Vui lòng thử lại.');
     }
   };
 
@@ -72,7 +72,7 @@ export default function CameraScreen() {
     if (!picked.canceled && picked.assets[0]) {
       const result = await importPhoto(picked.assets[0].uri, 'front');
       if (!result.ok) {
-        Alert.alert('Không phát hiện khuôn mặt', result.error ?? 'Vui lòng chọn ảnh khác.');
+        Alert.alert('Lỗi', result.error ?? 'Không thể tải ảnh. Vui lòng chọn ảnh khác.');
       }
     }
   };
@@ -81,7 +81,7 @@ export default function CameraScreen() {
     router.push(fromPremium ? '/(onboarding)/camera-side?from=premium' : '/(onboarding)/camera-side');
   };
 
-  if (!permission?.granted) {
+  if (!hasPermission) {
     return (
       <TrailBackground>
         <View style={styles.permissionContainer}>
@@ -135,9 +135,15 @@ export default function CameraScreen() {
         <View style={styles.viewfinderWrapper}>
           {frontPhoto ? (
             <Image source={{ uri: frontPhoto }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-          ) : (
-            <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing={facing} />
-          )}
+          ) : device ? (
+            <Camera
+              ref={cameraRef}
+              style={StyleSheet.absoluteFillObject}
+              device={device}
+              isActive={true}
+              photo={true}
+            />
+          ) : null}
 
           {/* FRONT label pill */}
           <View style={styles.labelPill}>
@@ -279,6 +285,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#000',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
 
   // Label pill

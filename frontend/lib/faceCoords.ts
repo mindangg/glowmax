@@ -1,17 +1,36 @@
 import { Dimensions } from 'react-native';
-import { FaceFeature } from 'expo-face-detector';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+// ---------------------------------------------------------------------------
+// NormalizedFace — face landmarks in 0-1 range relative to frame dimensions.
+// Produced by the VisionCamera frame processor, stored as a shared value,
+// and consumed by buildFaceCoords at capture time.
+// ---------------------------------------------------------------------------
+export type NormalizedFace = {
+  bounds: { x: number; y: number; width: number; height: number };
+  landmarks?: {
+    LEFT_EYE?: { x: number; y: number };
+    RIGHT_EYE?: { x: number; y: number };
+    NOSE_BASE?: { x: number; y: number };
+    MOUTH_LEFT?: { x: number; y: number };
+    MOUTH_RIGHT?: { x: number; y: number };
+    LEFT_EAR?: { x: number; y: number };
+    RIGHT_EAR?: { x: number; y: number };
+    LEFT_CHEEK?: { x: number; y: number };
+    RIGHT_CHEEK?: { x: number; y: number };
+  };
+};
 
 // ---------------------------------------------------------------------------
 // FaceCoords — screen-space coordinates of key face landmarks.
 // Used by ScanOverlay to position AR metric lines on the real face.
 // ---------------------------------------------------------------------------
 export type FaceCoords = {
-  cx: number;         // face center X
-  leX: number;        // left eye X
-  reX: number;        // right eye X
-  eyeY: number;       // eye level Y
+  cx: number;
+  leX: number;
+  reX: number;
+  eyeY: number;
   noseBridgeY: number;
   noseTipY: number;
   noseLeftX: number;
@@ -32,13 +51,11 @@ export type FaceCoords = {
   neckY: number;
 };
 
-// AsyncStorage key used to persist coords between capture screen and scan screen
 export const FACE_COORDS_STORAGE_KEY = 'glowmax_face_coords_latest';
 
 // ---------------------------------------------------------------------------
-// Cover-scale helpers — maps image pixel coords → screen coords.
-// The scan screen renders the photo with resizeMode="cover", so we replicate
-// the same transform here to get matching overlay positions.
+// coverTransform — maps image pixel coords → screen coords.
+// Replicates resizeMode="cover" so overlay positions match the displayed photo.
 // ---------------------------------------------------------------------------
 function coverTransform(imgW: number, imgH: number) {
   const scale = Math.max(SCREEN_W / imgW, SCREEN_H / imgH);
@@ -49,108 +66,118 @@ function coverTransform(imgW: number, imgH: number) {
       x: px * scale + offsetX,
       y: py * scale + offsetY,
     }),
-    // Converts a pixel-space length into screen-space length
     len: (pixels: number) => pixels * scale,
   };
 }
 
 // ---------------------------------------------------------------------------
-// buildFaceCoords — converts a FaceDetector result into FaceCoords.
-// imgW / imgH are the pixel dimensions of the image that was detected on.
+// estimateFaceCoords — fallback when no face was detected.
+// Assumes face is centered and occupies ~64% width, 70% height of the image.
+// ---------------------------------------------------------------------------
+export function estimateFaceCoords(imgW: number, imgH: number): FaceCoords {
+  return buildFaceCoords(
+    { bounds: { x: 0.18, y: 0.12, width: 0.64, height: 0.70 } },
+    imgW,
+    imgH,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// buildFaceCoords — converts a NormalizedFace (0-1 coords) into screen-space
+// FaceCoords. imgW / imgH are the final cropped photo pixel dimensions.
 // ---------------------------------------------------------------------------
 export function buildFaceCoords(
-  face: FaceFeature,
+  face: NormalizedFace,
   imgW: number,
   imgH: number,
 ): FaceCoords {
   const { pt, len } = coverTransform(imgW, imgH);
+  const lm = face.landmarks;
 
-  // Bounding box
-  const { origin, size } = face.bounds;
-  const faceLeft   = origin.x;
-  const faceTop    = origin.y;
-  const faceW      = size.width;
-  const faceH      = size.height;
+  const faceLeft    = face.bounds.x * imgW;
+  const faceTop     = face.bounds.y * imgH;
+  const faceW       = face.bounds.width * imgW;
+  const faceH       = face.bounds.height * imgH;
   const faceCenterX = faceLeft + faceW / 2;
 
   // ── Eyes ──────────────────────────────────────────────────────────────────
-  const rawLE = face.leftEyePosition  ?? { x: faceLeft + faceW * 0.36, y: faceTop + faceH * 0.38 };
-  const rawRE = face.rightEyePosition ?? { x: faceLeft + faceW * 0.64, y: faceTop + faceH * 0.38 };
+  const rawLE = lm?.LEFT_EYE
+    ? { x: lm.LEFT_EYE.x * imgW, y: lm.LEFT_EYE.y * imgH }
+    : { x: faceLeft + faceW * 0.36, y: faceTop + faceH * 0.38 };
+  const rawRE = lm?.RIGHT_EYE
+    ? { x: lm.RIGHT_EYE.x * imgW, y: lm.RIGHT_EYE.y * imgH }
+    : { x: faceLeft + faceW * 0.64, y: faceTop + faceH * 0.38 };
   const le = pt(rawLE.x, rawLE.y);
   const re = pt(rawRE.x, rawRE.y);
-  // Guarantee leX < reX regardless of camera mirroring
-  const leX = Math.min(le.x, re.x);
-  const reX = Math.max(le.x, re.x);
-  const eyeY = (le.y + re.y) / 2;
-  const eyeSpan = reX - leX;   // used to derive other widths proportionally
+  const leX     = Math.min(le.x, re.x);
+  const reX     = Math.max(le.x, re.x);
+  const eyeY    = (le.y + re.y) / 2;
+  const eyeSpan = reX - leX;
 
   // ── Nose ──────────────────────────────────────────────────────────────────
-  const rawNose = face.noseBasePosition ?? { x: faceCenterX, y: faceTop + faceH * 0.65 };
-  const noseBase = pt(rawNose.x, rawNose.y);
-  const cx = noseBase.x;                              // center X from nose
+  const rawNose = lm?.NOSE_BASE
+    ? { x: lm.NOSE_BASE.x * imgW, y: lm.NOSE_BASE.y * imgH }
+    : { x: faceCenterX, y: faceTop + faceH * 0.65 };
+  const noseBase    = pt(rawNose.x, rawNose.y);
+  const cx          = noseBase.x;
   const noseTipY    = noseBase.y;
   const noseBridgeY = eyeY + (noseTipY - eyeY) * 0.35;
-  const noseHalfW   = eyeSpan * 0.22;                // ~44% of eye span
+  const noseHalfW   = eyeSpan * 0.22;
 
   // ── Mouth ─────────────────────────────────────────────────────────────────
-  const rawLM = face.leftMouthPosition  ?? { x: faceLeft + faceW * 0.40, y: faceTop + faceH * 0.78 };
-  const rawRM = face.rightMouthPosition ?? { x: faceLeft + faceW * 0.60, y: faceTop + faceH * 0.78 };
-  const lm = pt(rawLM.x, rawLM.y);
-  const rm = pt(rawRM.x, rawRM.y);
-  const mouthLeftX  = Math.min(lm.x, rm.x);
-  const mouthRightX = Math.max(lm.x, rm.x);
-  const mouthY      = (lm.y + rm.y) / 2;
+  const rawLM = lm?.MOUTH_LEFT
+    ? { x: lm.MOUTH_LEFT.x * imgW, y: lm.MOUTH_LEFT.y * imgH }
+    : { x: faceLeft + faceW * 0.40, y: faceTop + faceH * 0.78 };
+  const rawRM = lm?.MOUTH_RIGHT
+    ? { x: lm.MOUTH_RIGHT.x * imgW, y: lm.MOUTH_RIGHT.y * imgH }
+    : { x: faceLeft + faceW * 0.60, y: faceTop + faceH * 0.78 };
+  const lmPt       = pt(rawLM.x, rawLM.y);
+  const rmPt       = pt(rawRM.x, rawRM.y);
+  const mouthLeftX  = Math.min(lmPt.x, rmPt.x);
+  const mouthRightX = Math.max(lmPt.x, rmPt.x);
+  const mouthY      = (lmPt.y + rmPt.y) / 2;
 
-  // ── Forehead & chin from bounding box ────────────────────────────────────
-  const foreheadPt = pt(faceCenterX, faceTop);
-  const chinPt     = pt(faceCenterX, faceTop + faceH);
-  const foreheadY  = foreheadPt.y;
-  const chinY      = chinPt.y;
+  // ── Forehead & chin ───────────────────────────────────────────────────────
+  const foreheadY = pt(faceCenterX, faceTop).y;
+  const chinY     = pt(faceCenterX, faceTop + faceH).y;
 
-  // ── Jaw (between mouth and chin) ──────────────────────────────────────────
-  const jawY = mouthY + (chinY - mouthY) * 0.55;
-
-  // Jaw width: use ear positions when available, else estimate from bounding box
-  const rawLEar = face.leftEarPosition  ?? { x: faceLeft,        y: faceTop + faceH * 0.50 };
-  const rawREar = face.rightEarPosition ?? { x: faceLeft + faceW, y: faceTop + faceH * 0.50 };
-  const lEar = pt(rawLEar.x, rawLEar.y);
-  const rEar = pt(rawREar.x, rawREar.y);
+  // ── Jaw ───────────────────────────────────────────────────────────────────
+  const jawY    = mouthY + (chinY - mouthY) * 0.55;
+  const rawLEar = lm?.LEFT_EAR
+    ? { x: lm.LEFT_EAR.x * imgW, y: lm.LEFT_EAR.y * imgH }
+    : { x: faceLeft, y: faceTop + faceH * 0.50 };
+  const rawREar = lm?.RIGHT_EAR
+    ? { x: lm.RIGHT_EAR.x * imgW, y: lm.RIGHT_EAR.y * imgH }
+    : { x: faceLeft + faceW, y: faceTop + faceH * 0.50 };
+  const lEar      = pt(rawLEar.x, rawLEar.y);
+  const rEar      = pt(rawREar.x, rawREar.y);
   const leftJawX  = Math.min(lEar.x, rEar.x);
   const rightJawX = Math.max(lEar.x, rEar.x);
 
   // ── Cheeks (zygomatic) ────────────────────────────────────────────────────
-  const rawLC = face.leftCheekPosition  ?? { x: faceLeft + faceW * 0.18, y: faceTop + faceH * 0.52 };
-  const rawRC = face.rightCheekPosition ?? { x: faceLeft + faceW * 0.82, y: faceTop + faceH * 0.52 };
-  const lc = pt(rawLC.x, rawLC.y);
-  const rc = pt(rawRC.x, rawRC.y);
+  const rawLC = lm?.LEFT_CHEEK
+    ? { x: lm.LEFT_CHEEK.x * imgW, y: lm.LEFT_CHEEK.y * imgH }
+    : { x: faceLeft + faceW * 0.18, y: faceTop + faceH * 0.52 };
+  const rawRC = lm?.RIGHT_CHEEK
+    ? { x: lm.RIGHT_CHEEK.x * imgW, y: lm.RIGHT_CHEEK.y * imgH }
+    : { x: faceLeft + faceW * 0.82, y: faceTop + faceH * 0.52 };
+  const lc         = pt(rawLC.x, rawLC.y);
+  const rc         = pt(rawRC.x, rawRC.y);
   const zygoLeftX  = Math.min(lc.x, rc.x);
   const zygoRightX = Math.max(lc.x, rc.x);
   const zygoY      = (lc.y + rc.y) / 2;
 
-  // ── Neck (estimated below chin) ───────────────────────────────────────────
-  const neckY      = chinY + len(faceH * 0.10);
-  const neckHalfW  = (mouthRightX - mouthLeftX) * 0.8;
+  // ── Neck ──────────────────────────────────────────────────────────────────
+  const neckY     = chinY + len(faceH * 0.10);
+  const neckHalfW = (mouthRightX - mouthLeftX) * 0.8;
 
   return {
-    cx,
-    leX,
-    reX,
-    eyeY,
-    noseBridgeY,
-    noseTipY,
+    cx, leX, reX, eyeY, noseBridgeY, noseTipY,
     noseLeftX:  cx - noseHalfW,
     noseRightX: cx + noseHalfW,
-    mouthY,
-    mouthLeftX,
-    mouthRightX,
-    jawY,
-    leftJawX,
-    rightJawX,
-    chinY,
-    foreheadY,
-    zygoLeftX,
-    zygoRightX,
-    zygoY,
+    mouthY, mouthLeftX, mouthRightX,
+    jawY, leftJawX, rightJawX, chinY, foreheadY,
+    zygoLeftX, zygoRightX, zygoY,
     neckLeftX:  cx - neckHalfW,
     neckRightX: cx + neckHalfW,
     neckY,

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "scheme": "glowmax",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -16,14 +16,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.glowmax.app",
+      "deploymentTarget": "16.0",
       "buildNumber": "1",
       "entitlements": {
-        "com.apple.developer.applesignin": ["Default"]
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
       },
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "GLOWMAX cần quyền truy cập thư viện ảnh để chọn ảnh phân tích khuôn mặt.",
         "NSPhotoLibraryAddUsageDescription": "GLOWMAX cần quyền lưu ảnh vào thư viện.",
-        "NSCameraUsageDescription": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn."
+        "NSCameraUsageDescription": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -33,17 +37,28 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.glowmax.app",
-      "versionCode": 1
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
-          "cameraPermission": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn."
+          "cameraPermissionText": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn."
         }
       ],
       [
@@ -55,7 +70,15 @@
       "expo-web-browser",
       "expo-sharing",
       "expo-secure-store",
-      "react-native-purchases",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.0",
+            "buildReactNativeFromSource": true
+          }
+        }
+      ],
       [
         "expo-media-library",
         {
@@ -64,6 +87,12 @@
           "isAccessMediaLocationEnabled": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b467ed53-ed87-4e8d-97b2-561fc6e42b5a"
+      }
+    }
   }
 }

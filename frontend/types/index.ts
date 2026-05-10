@@ -31,9 +31,8 @@ export interface MixedTextSegment {
 
 export interface TrialResult {
   overall_score: number;
-  appeal_summary: string;
-  rank: number;
-  total_users: number;
+  psl_tier: string;
+  teaser: string;
 }
 
 export interface MetricScore {

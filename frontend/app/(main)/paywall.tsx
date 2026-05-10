@@ -27,7 +27,6 @@ import {
   checkUsernameAvailable,
   getCurrentProfile,
 } from '../../lib/auth';
-import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../lib/constants';
 
 // ── Helpers (re-use from username screen) ─────────────────────────────────────
@@ -82,8 +81,8 @@ export default function PaywallScreen() {
   // ── On mount: skip auth step if already signed in with real account ──────────
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && !user.is_anonymous) {
+      const profile = await getCurrentProfile();
+      if (profile && !profile.is_anonymous) {
         setStep('purchase');
       }
       setInitChecking(false);

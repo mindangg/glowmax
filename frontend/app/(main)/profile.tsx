@@ -57,8 +57,6 @@ export default function ProfileScreen() {
   }, [restorePurchases]);
 
   const score = trialResult?.overall_score ?? null;
-  const rank = trialResult?.rank ?? null;
-  const totalUsers = trialResult?.total_users ?? null;
   const scansUsed = trialState === 'used' ? 1 : 0;
 
   const subscriptionLabel =
@@ -134,25 +132,15 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{rank !== null ? String(rank) : '—'}</Text>
+            <Text style={styles.statValue}>—</Text>
             <Text style={styles.statLabel}>XẾP HẠNG</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{totalUsers !== null ? String(totalUsers) : '—'}</Text>
-            <Text style={styles.statLabel}>TỔNG NGƯỜI</Text>
+            <Text style={styles.statValue}>{scansUsed}</Text>
+            <Text style={styles.statLabel}>SỐ LẦN QUÉT</Text>
           </View>
         </Animated.View>
-
-        {/* Ranking display */}
-        {rank !== null && totalUsers !== null && (
-          <Animated.View entering={FadeInDown.delay(250).duration(500)} style={styles.rankRow}>
-            <Text style={styles.rankText}>
-              BẠN ĐANG HẠNG{' '}
-              <Text style={styles.rankHighlight}>{rank}/{totalUsers}</Text>
-            </Text>
-          </Animated.View>
-        )}
 
         {/* Divider */}
         <View style={styles.sectionDivider} />

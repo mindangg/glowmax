@@ -17,6 +17,7 @@
 import { Platform } from 'react-native';
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { api, getApiErrorMessage } from './apiClient';
 import { saveTokens, clearTokens, getAccessToken, getRefreshToken, decodeUserId } from './tokenUtils';
 
@@ -69,9 +70,49 @@ export async function signInWithProvider(
   if (provider === 'google') {
     return signInWithGoogle();
   }
-  // Apple: defer đến khi Apple Developer account duyệt
-  // Giữ placeholder để UI button không crash
-  return { ok: false, error: 'Apple Sign-In chưa khả dụng. Vui lòng dùng Google.' };
+  return signInWithApple();
+}
+
+async function signInWithApple(): Promise<SignInResult> {
+  // Apple Sign-In chỉ khả dụng trên iOS
+  if (Platform.OS !== 'ios') {
+    return { ok: false, error: 'Đăng nhập Apple chỉ hỗ trợ trên iOS.' };
+  }
+
+  const isAvailable = await AppleAuthentication.isAvailableAsync();
+  if (!isAvailable) {
+    return { ok: false, error: 'Thiết bị không hỗ trợ Sign in with Apple.' };
+  }
+
+  try {
+    const credential = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+
+    const idToken = credential.identityToken;
+    if (!idToken) {
+      return { ok: false, error: 'Không nhận được token từ Apple.' };
+    }
+
+    const currentToken = await getAccessToken();
+    const anonymousUserId = decodeUserId(currentToken);
+
+    const { data } = await api.post('/api/v1/auth/oauth/apple/callback', {
+      id_token: idToken,
+      anonymous_user_id: anonymousUserId,
+    });
+
+    await saveTokens(data.access_token, data.refresh_token);
+    return { ok: true, linked: !!anonymousUserId };
+  } catch (err: any) {
+    if (err?.code === 'ERR_REQUEST_CANCELED') {
+      return { ok: false, error: 'Đăng nhập bị hủy.' };
+    }
+    return { ok: false, error: getApiErrorMessage(err, 'Đăng nhập Apple thất bại.') };
+  }
 }
 
 async function signInWithGoogle(): Promise<SignInResult> {

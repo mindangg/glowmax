@@ -119,9 +119,10 @@ export default function ResultsRouter() {
 
   useEffect(() => {
     if (apiStatus !== 'done' || rankSubmitted) return;
-    const score = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
     const username = answers.username ?? 'anonymous';
     if (!isPaid) {
+      // Trial scan: dùng overall_score từ trialResult, không có fullResults
+      const score = trialResult?.overall_score ?? 0;
       setRankSubmitted(true);
       submitScore({ overall_score: score, username, is_public: true }).then(r => { if (r) setMyRank(r); });
     } else {

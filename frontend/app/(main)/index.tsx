@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -34,8 +33,6 @@ export default function HomeScreen() {
 
   const hasScanned = trialState === 'used' || (isPaid && trialResult !== null);
   const score = trialResult?.overall_score ?? null;
-  const rank = trialResult?.rank ?? null;
-  const totalUsers = trialResult?.total_users ?? null;
 
   const handleScan = () => {
     // Navigate to camera in onboarding flow for photo capture, then to scan animation
@@ -46,7 +43,7 @@ export default function HomeScreen() {
     router.push('/(main)/results');
   };
 
-  const handleLeaderboard = () => { router.push(`/(main)/leaderboard?myRank=${rank}`); };
+  const handleLeaderboard = () => { router.push('/(main)/leaderboard'); };
 
   const handleProfile = () => {
     router.push('/(main)/profile');
@@ -84,34 +81,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Ranking card — shown after first scan */}
-        {hasScanned && rank !== null && totalUsers !== null ? (
-          <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.rankCard}>
-            <LinearGradient
-              colors={['rgba(232,197,111,0.15)', 'rgba(232,197,111,0.05)']}
-              style={styles.rankCardInner}
-            >
-              <Text style={styles.rankLabel}>XẾP HẠNG CỦA BẠN</Text>
-              <Text style={styles.rankValue}>
-                <Text style={styles.rankNumber}>{rank}</Text>
-                <Text style={styles.rankDivider}>/</Text>
-                <Text style={styles.rankTotal}>{totalUsers}</Text>
-              </Text>
-              <Text style={styles.rankSub}>BẠN ĐANG HẠNG {rank}/{totalUsers}</Text>
-              <TouchableOpacity onPress={handleLeaderboard} style={styles.leaderboardLink} activeOpacity={0.7}>
-                <Text style={styles.leaderboardLinkText}>XEM BẢNG XẾP HẠNG →</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </Animated.View>
-        ) : (
-          <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.rankCard}>
-            <View style={styles.rankCardInner}>
-              <Text style={styles.rankLabel}>XẾP HẠNG</Text>
-              <Text style={styles.rankPlaceholder}>—/—</Text>
-              <Text style={styles.rankSub}>CHƯA QUÉT LẦN NÀO</Text>
-            </View>
-          </Animated.View>
-        )}
+        {/* Ranking card */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.rankCard}>
+          <View style={styles.rankCardInner}>
+            <Text style={styles.rankLabel}>XẾP HẠNG</Text>
+            <Text style={styles.rankPlaceholder}>—/—</Text>
+            <Text style={styles.rankSub}>{hasScanned ? 'ĐĂNG NHẬP ĐỂ XEM RANK' : 'CHƯA QUÉT LẦN NÀO'}</Text>
+            <TouchableOpacity onPress={handleLeaderboard} style={styles.leaderboardLink} activeOpacity={0.7}>
+              <Text style={styles.leaderboardLinkText}>XEM BẢNG XẾP HẠNG →</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
 
         {/* Score card — shown if user has a score */}
         {score !== null ? (
@@ -259,29 +239,6 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     textTransform: 'uppercase',
     marginBottom: 8,
-  },
-  rankValue: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  rankNumber: {
-    fontFamily: FONTS.MONO_BOLD,
-    fontSize: 52,
-    color: COLORS.ACCENT_GOLD,
-    lineHeight: 56,
-  },
-  rankDivider: {
-    fontFamily: FONTS.MONO_BOLD,
-    fontSize: 28,
-    color: 'rgba(232,197,111,0.5)',
-    lineHeight: 56,
-    marginHorizontal: 4,
-  },
-  rankTotal: {
-    fontFamily: FONTS.MONO_BOLD,
-    fontSize: 28,
-    color: 'rgba(232,197,111,0.7)',
-    lineHeight: 56,
   },
   rankSub: {
     fontFamily: FONTS.MONO,

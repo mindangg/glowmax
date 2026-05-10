@@ -12,7 +12,6 @@ import TrailBackground from '../../../components/backgrounds/TrailBackground';
 import BackArrow from '../../../components/ui/BackArrow';
 import { useSubscription } from '../../../hooks/useSubscription';
 import { useFullAnalysis } from '../../../hooks/useFullAnalysis';
-import { useTrialScan } from '../../../hooks/useTrialScan';
 import { COLORS, FONTS } from '../../../lib/constants';
 import { ResultCategory, MetricScore } from '../../../types';
 
@@ -59,7 +58,6 @@ export default function CategoryDetailScreen() {
   const router = useRouter();
   const { isPaid } = useSubscription();
   const { results } = useFullAnalysis();
-  const { trialResult } = useTrialScan();
 
   // Redirect unpaid users to paywall
   if (!isPaid) {
@@ -114,11 +112,9 @@ export default function CategoryDetailScreen() {
               </>
             )}
 
-            {isAppeal && trialResult && (
+            {isAppeal && results?.pslResult?.psl_tier && (
               <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>
-                  BẠN ĐANG HẠNG {trialResult.rank}/{trialResult.total_users}
-                </Text>
+                <Text style={styles.rankText}>{results.pslResult.psl_tier}</Text>
               </View>
             )}
           </Animated.View>
