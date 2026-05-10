@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 glowmax/
-├── frontend/          React Native + Expo (app/, hooks/, lib/, components/, types/)
-├── backend/           Spring Boot 4.0 + Java 25 (controllers done; services still need implementing)
+├── frontend/          React Native + Expo (app/, hooks/, store/, lib/, components/, types/)
+├── backend/           Spring Boot 4.0 + Java 25 (fully implemented)
 ├── infra/             AWS infra docs, Caddy config, docker-compose.prod.yml
-├── supabase/          [LEGACY] Edge Functions + migrations; being replaced by backend/
+├── supabase/          [LEGACY] Edge Functions — replaced by backend/, do not touch
 ├── .github/workflows/ backend.yml — CI/CD (test + build-and-deploy to EC2)
 └── docs/              ADRs, runbooks
 ```
@@ -21,16 +21,12 @@ glowmax/
 ### Frontend (run from `frontend/`)
 
 ```bash
-cd frontend
-
 npx expo start          # dev server (Expo Go)
-npm run android         # Android device/emulator
+npm run android         # Android emulator
 npm run ios             # iOS simulator
-npm run web             # web browser
+npx tsc --noEmit        # type-check — run this after every change (no test/lint scripts)
 
-npx tsc --noEmit        # type-check (no test/lint scripts configured)
-
-# EAS builds (requires `eas-cli` + EAS account — needed for real RevenueCat purchases)
+# EAS builds (requires eas-cli + EAS account — needed for real RevenueCat purchases)
 eas build --profile development --platform ios
 eas build --profile production --platform all
 ```
@@ -38,15 +34,12 @@ eas build --profile production --platform all
 ### Backend (run from `backend/`)
 
 ```bash
-cd backend
-
-# First time: generate Maven wrapper
+# First time only
 mvn -N wrapper:wrapper -Dmaven=3.9.9
 
-# Start Postgres locally (required before running the app)
+# Start Postgres (required before running the app)
 docker compose -f docker-compose.dev.yml up -d
 
-# Run / build / test
 ./mvnw spring-boot:run          # start on localhost:8080
 ./mvnw clean verify             # compile + run tests (H2 in-memory, no Docker needed)
 ./mvnw clean package            # build JAR → target/
@@ -56,129 +49,173 @@ docker compose -f docker-compose.dev.yml up -d
 docker build -t glowmax-api:latest .
 ```
 
-Backend requires a `.env` file (copy from `.env.example`): `DB_PASSWORD`, `JWT_SECRET`, `OPENAI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+Backend requires a `.env` file (copy from `.env.example`). Required vars: `DB_PASSWORD`, `JWT_SECRET`, `OPENAI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. Apple Sign-In also requires `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_PATH` (pending Apple Developer approval).
 
 ## Frontend Architecture
 
-**Stack:** React Native 0.83.4 + Expo 55, Expo Router (file-based routing), NativeWind (Tailwind utilities), RevenueCat (subscriptions, mocked in Expo Go), Spring Boot REST API (auth + data).
+**Stack:** React Native 0.83.4 + Expo 55, Expo Router (file-based routing), NativeWind (Tailwind utilities), Zustand (global state), RevenueCat (subscriptions, mocked in Expo Go), Spring Boot REST API.
 
 **UI language:** Vietnamese throughout (labels, error messages, button text).
 
 ### Routing
 
 `app/index.tsx` redirects immediately to `/(onboarding)`. Three route groups:
-- `(onboarding)/` — 30+ screens collecting user profile data before account creation. State persisted to AsyncStorage via `useOnboarding`.
+- `(onboarding)/` — 30+ screens collecting profile data before account creation. State persisted to AsyncStorage via `useOnboarding`.
 - `(main)/` — Non-premium post-signup app: home, scan, results, leaderboard, paywall, profile, my-score.
-- `(premium)/` — Premium app with custom bottom tab bar (Quét / Xếp hạng / Hàng ngày / Thông tin / Tiến độ). Layout in `app/(premium)/_layout.tsx`.
+- `(premium)/` — Premium app with custom bottom tab bar (Quét / Xếp hạng / Hàng ngày / Thông tin / Tiến độ).
 
 Root layout (`app/_layout.tsx`) handles font loading, anonymous auth init via `ensureAnonymousAuth()`, RevenueCat setup.
 
 ### Authentication Flow
 
-Auth has fully migrated from Supabase to the Spring Boot REST API. `lib/supabase.ts` no longer exists.
+Auth is fully on the Spring Boot REST API. `lib/supabase.ts` does not exist.
 
-1. **App boot** — `ensureAnonymousAuth()` (`lib/auth.ts`) checks for an existing access token in SecureStore; if absent, calls `POST /api/v1/auth/anonymous` to create an anonymous user and stores the returned JWT pair.
-2. **Google Sign-In** — `expo-auth-session` opens Google's OAuth browser → receives `id_token` → POSTs to `POST /api/v1/auth/oauth/google/callback` with the token and `anonymous_user_id` → backend merges the anonymous account, preserving `user_id` and data → stores new JWT pair.
-3. **Token refresh** — The Axios interceptor in `lib/apiClient.ts` auto-retries on 401 using the stored refresh token (`POST /api/v1/auth/refresh`), then replays the original request.
-4. Apple Sign-In is stubbed (`lib/auth.ts` returns an error message) pending Apple Developer approval.
+1. **App boot** — `ensureAnonymousAuth()` (`lib/auth.ts`) checks SecureStore for an existing token; if absent, calls `POST /api/v1/auth/anonymous` and stores the returned JWT pair.
+2. **Google Sign-In** — `expo-auth-session` uses `response_type=id_token` implicit flow (no PKCE, no server-side code exchange) → `POST /api/v1/auth/oauth/google/callback` with `anonymous_user_id` → backend verifies via Google JWKS → merges the anonymous account → stores new JWT pair.
+3. **Apple Sign-In** — `expo-apple-authentication` → `identity_token` → `POST /api/v1/auth/oauth/apple/callback` → same merge flow. Backend fully implemented; blocked on Apple Developer approval.
+4. **Token refresh** — Axios interceptor in `lib/apiClient.ts` auto-retries on 401 using the stored refresh token (`POST /api/v1/auth/refresh`), then replays the original request. Refresh tokens do **not** rotate — the old token stays valid until logout.
+
+`lib/auth.ts` exports: `ensureAnonymousAuth`, `signInWithProvider`, `upsertProfile`, `checkUsernameAvailable`, `getCurrentProfile`, `signOut`.
 
 ### State Management
 
-No Redux/Zustand — all state in custom hooks under `hooks/` using React state + AsyncStorage:
-- `useOnboarding` — onboarding form answers
-- `useSubscription` — trial/paid status + RevenueCat sync
-- `usePhotoCapture` — camera capture + gallery import with EXIF correction
-- `useTrialScan` / `useFullAnalysis` — analysis results (call Spring Boot `/api/v1/analyze/*`)
-- `useLeaderboard` — ranking, score submission (`submitScore` → `/api/v1/scores`), search (`searchLeaderboard` → `/api/v1/leaderboard/search`)
-- `usePSLScanAnimation` — scan screen animation state
-- `useDailyTasks` — daily checklist completion state (premium)
+**Global scan state** lives in `store/scanStore.ts` (Zustand). This is a singleton — every component calling the hooks below reads from the same instance, enabling cross-tab data sharing in the premium layout.
 
-All hooks make HTTP calls via `lib/apiClient.ts` (the central Axios instance), not directly via fetch.
+| Hook | Backed by | Persists |
+|------|-----------|----------|
+| `useTrialScan` | `scanStore` | Session only |
+| `useFullAnalysis` | `scanStore` | Session only |
+| `usePhotoCapture` | `scanStore` (URIs) + local ref (cameraRef) | Session only |
+| `useSubscription` | `useState` + AsyncStorage | ✅ Cross-session |
+| `useOnboarding` | `useState` + AsyncStorage | ✅ Cross-session |
+| `useLeaderboard` | No state — fetch functions only | — |
+| `useDailyTasks` | `useState` + AsyncStorage | ✅ Cross-session |
+
+`scanStore` is not persisted intentionally — scan results are always fresh per session.
+
+All HTTP calls go through `lib/apiClient.ts` (central Axios instance), never fetch directly.
 
 ### Key Libraries
 
-- **HTTP client:** `lib/apiClient.ts` — Axios instance with `EXPO_PUBLIC_API_BASE_URL` base; request interceptor attaches Bearer token; response interceptor handles 401 auto-refresh and 429 rate-limit errors (throws with `isRateLimit: true` + `retryAfterSeconds`). Use `getApiErrorMessage()` for user-facing error strings.
-- **Token storage:** `lib/tokenUtils.ts` — JWT stored in `expo-secure-store` (iOS Keychain / Android Keystore) on native, AsyncStorage on web. Exports `saveTokens`, `clearTokens`, `getAccessToken`, `getRefreshToken`, `decodeUserId`, `isAnonymousToken`, `isTokenExpired`.
-- **Animations:** `react-native-reanimated` v4 + `react-native-worklets` — staggered fade-in on screen entry is the standard pattern.
-- **Camera/face:** `expo-camera` for capture, `expo-face-detector` for face detection during scan.
-- **Image processing:** `expo-image-manipulator` — EXIF rotation fix, crop to viewfinder ratio (~0.765), JPEG 0.85 compression.
-- **Share card:** `react-native-view-shot` captures a `<ViewShot>` ref to PNG, shared via `expo-sharing` (in `my-score.tsx` and `user-score.tsx`).
-- **Styling:** `StyleSheet.create` with occasional NativeWind classes; dark theme `#0A0C0E` bg + `#E8C56F` gold accent; SpaceMono monospace font (`FONTS.MONO` / `FONTS.MONO_BOLD`).
+- **HTTP client:** `lib/apiClient.ts` — Axios with `EXPO_PUBLIC_API_BASE_URL`; request interceptor attaches Bearer token; response interceptor handles 401 auto-refresh and 429 rate-limit errors (throws with `isRateLimit: true` + `retryAfterSeconds`). Use `getApiErrorMessage()` for user-facing strings.
+- **Token storage:** `lib/tokenUtils.ts` — JWT in `expo-secure-store` on native, AsyncStorage on web. Exports `saveTokens`, `clearTokens`, `getAccessToken`, `getRefreshToken`, `decodeUserId`, `isAnonymousToken`.
+- **Animations:** `react-native-reanimated` v4 + `react-native-worklets` — staggered `FadeInDown` on screen entry is the standard pattern.
+- **Image processing:** `expo-image-manipulator` — EXIF rotation fix, center-crop to viewfinder ratio (~0.765), JPEG 0.85 compression.
+- **Face coordinate mapping:** `lib/faceCoords.ts` — converts `NormalizedFace` landmarks (0–1 range, from VisionCamera frame processor) into screen-space `FaceCoords` for AR scan overlay positioning. `buildFaceCoords(face, imgW, imgH)` does the cover-transform math; `estimateFaceCoords` is the fallback when no face is detected. Coords are persisted via `FACE_COORDS_STORAGE_KEY` in AsyncStorage to survive the camera→scan screen transition.
+- **Share card:** `react-native-view-shot` + `expo-sharing` — used in `my-score.tsx` and `user-score.tsx`.
+- **Styling:** `StyleSheet.create`; dark theme `#0A0C0E` bg + `#E8C56F` gold accent; SpaceMono font via `FONTS.MONO` / `FONTS.MONO_BOLD` from `lib/constants.ts`.
 
-### Metrics & PSL System
+### PSL / Metrics System
 
 `lib/metrics.ts` — 20 facial measurements (ESR, FWHR, GONIAL, etc.) with overlay type/position for scan animation.
 
 `lib/constants.ts`:
-- 7-tier PSL ranking (`PSL_TIER_ORDER`: Sub 3 → True Chang) with `PSL_TIER_COLORS`
+- `PSL_TIER_ORDER` — 7 tiers: Sub 3 → Sub 5 → LTN → MTN → HTN → Chang → True Chang
 - `RESULT_CATEGORIES` — 9 output categories (appeal, jaw, eyes, orbitals, zygos, harmony, nose, hair, skin)
-- `STYLE_TYPES` — 26 style archetypes (Thư sinh, Bad boy, Old money, Techwear, etc.)
-- `COLORS` / `FONTS` — design tokens
+- `STYLE_TYPES` — 26 style archetypes
 
-`types/index.ts` key types: `PSLResult`, `LeaderboardEntry` (includes `combined_score`, `style_type`, per-category scores), `FullAnalysisResult`.
+**`TrialResult` type** (`types/index.ts`): `{ overall_score, psl_tier, teaser }` — matches `TrialScanResponse` from backend. Does **not** contain `rank` or `total_users` (those come from `submitScore` in `useLeaderboard`).
 
-`lib/infoContent.ts` — `INFO_SECTIONS` (22) and `INFO_CATEGORIES` (5: Skincare, Bone, Nutrition, Style, Psychology) for the premium Info tab, linked from daily tasks via `infoKey`.
+**`combined_score` formula:** `overall_score × 7 + tier_index × 5`. Computed client-side in `useLeaderboard.submitScore` for optimistic display; backend recomputes authoritatively.
 
-**Username validation** (`app/(onboarding)/username.tsx`): 500 ms debounce; strips non-alphanumeric except `. _ -` and Vietnamese unicode; rejects SQL/HTML/control-char injection before calling `checkUsernameAvailable` → `GET /api/v1/profiles/check-username`.
+`lib/infoContent.ts` — `INFO_SECTIONS` (22) and `INFO_CATEGORIES` (5) for the premium Info tab, linked from daily tasks via `infoKey`.
 
-**combined_score formula:** `overall_score × 7 + tier_index × 5` (max 100). Computed client-side in `useLeaderboard` for optimistic display; backend recomputes authoritatively.
+**Username validation** (`app/(onboarding)/username.tsx`): 500 ms debounce; strips invalid chars including SQL/HTML injection; checks `GET /api/v1/profiles/check-username`.
 
 ### Environment Variables
 
 In `frontend/.env.local`:
 ```
-EXPO_PUBLIC_SUPABASE_URL=...          # legacy — still used by paywall.tsx
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...     # legacy — still used by paywall.tsx
-EXPO_PUBLIC_API_BASE_URL=...          # Spring Boot backend (default: http://localhost:8080)
+EXPO_PUBLIC_API_BASE_URL=...              # Spring Boot backend (default: http://localhost:8080)
 EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS=...
 EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID=...
 EXPO_PUBLIC_REVENUECAT_IOS_KEY=...
 EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=...
 ```
 
+`EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` are no longer needed — Supabase has been fully removed.
+
 ## Backend Architecture (Spring Boot)
 
-**Stack:** Spring Boot 4.0.6 + Java 25 + Maven, PostgreSQL 16 + Flyway, Spring Security stateless + JWT (jjwt 0.12) + nimbus-jose-jwt (Google/Apple ID token verification), Bucket4j in-memory rate limiting, AWS SDK v2 (S3 avatars) + Thumbnailator, Lombok + Java 25 Records.
+**Stack:** Spring Boot 4.0.6 + Java 25 + Maven, PostgreSQL 16 + Flyway, Spring Security stateless + JWT (jjwt 0.12) + nimbus-jose-jwt (Google/Apple JWKS verification), Bucket4j in-memory rate limiting, AWS SDK v2 (S3 avatars) + Thumbnailator, Lombok + Java 25 Records.
 
-**Implementation status:**
-- ✅ **Implemented:** `JwtUtil`, `JwtFilter`, `SecurityConfig`, `GlobalExceptionHandler`, `AuthService`, `RateLimitService` (Bucket4j in-memory), `WebClientConfig`, `AwsS3Config`, `AuthController`, `ProfileController`, `LeaderboardController`, `AnalyzeController`, `AvatarController`
-- 🔲 **Skeleton (needs implementing):** `ProfileService`, `LeaderboardService`, `AnalyzeService`, `S3Service`
+**All services are fully implemented.** Jackson is configured with `SNAKE_CASE` naming strategy — Java `camelCase` fields serialize to `snake_case` JSON automatically.
 
-Mobile app sends Google `id_token` directly (via `expo-auth-session`) — backend verifies via nimbus-jose JWKS, no server-side code exchange needed.
+Mobile app sends OAuth `id_token` directly — backend verifies signature via JWKS (no server-side code exchange needed).
 
 ### API Endpoints
 
 | Controller | Endpoints |
 |---|---|
-| `AuthController` | `POST /api/v1/auth/anonymous`, `/oauth/google/callback`, `/refresh`, `/logout` |
+| `AuthController` | `POST /api/v1/auth/anonymous`, `/oauth/{provider}/callback` (google + apple), `/refresh`, `/logout` |
 | `ProfileController` | `GET/PUT /api/v1/profiles/me`, `GET /api/v1/profiles/check-username` |
 | `LeaderboardController` | `GET /api/v1/leaderboard`, `GET /api/v1/leaderboard/search`, `POST /api/v1/scores` |
-| `AnalyzeController` | `POST /api/v1/analyze/trial`, `/analyze/full` |
+| `AnalyzeController` | `POST /api/v1/analyze/trial`, `POST /api/v1/analyze/full` |
 | `AvatarController` | `POST /api/v1/avatars` |
 
 ### Backend Structure
 
 ```
 backend/src/main/java/com/glowmax/
-├── config/           SecurityConfig ✅, WebClientConfig ✅, AwsS3Config ✅
-├── controller/       All implemented ✅ (Auth, Profile, Leaderboard, Analyze, Avatar)
-├── service/          AuthService ✅, JwtUtil ✅, RateLimitService ✅ | ProfileService 🔲, LeaderboardService 🔲, AnalyzeService 🔲, OpenAiService 🔲, S3Service 🔲
-├── repository/       Spring Data JPA (UserRepository, UserScoreRepository with leaderboard rank() queries)
-├── entity/           User, Profile, UserScore (JPA entities)
-├── dto/              Java 25 Records (AuthDtos, ProfileDtos, LeaderboardDtos, AnalyzeDtos)
-├── filter/           JwtFilter (OncePerRequestFilter)
-├── util/             WebUtils.extractClientIp() — static HTTP utilities (no Spring bean)
-└── exception/        BusinessException (static factories) + GlobalExceptionHandler (RFC 7807 ProblemDetail)
+├── annotation/   @RateLimit — declarative rate limiting (capacity, window, keyType USER|IP)
+├── aspect/       RateLimitAspect — AOP @Around → RateLimitService.checkOrThrow()
+├── config/       SecurityConfig, WebClientConfig, AwsS3Config
+├── controller/   AuthController, ProfileController, LeaderboardController, AnalyzeController, AvatarController
+├── service/      AuthService, ProfileService, LeaderboardService, AnalyzeService, OpenAiService, S3Service, RateLimitService, JwtUtil
+├── repository/   UserRepository, UserScoreRepository (native leaderboard rank() queries), ProfileRepository, RefreshTokenRepository
+├── entity/       User, Profile, UserScore, RefreshToken
+├── dto/          Java 25 Records — AuthDtos, ProfileDtos, LeaderboardDtos, AnalyzeDtos
+├── filter/       JwtFilter (OncePerRequestFilter)
+├── util/         WebUtil.extractClientIp() — static, not a Spring bean
+└── exception/    BusinessException (static factories) + GlobalExceptionHandler (RFC 7807 ProblemDetail)
 
 backend/src/main/resources/
-├── application.yml           All config via env vars
-└── db/migration/V1__init_schema.sql   Single Flyway migration (users, profiles, user_scores, refresh_tokens)
+├── application.yml              All config via env vars
+└── db/migration/V1__init_schema.sql   Flyway migration (users, profiles, user_scores, refresh_tokens)
 ```
 
-Tests use H2 in-memory (no Docker needed). Override datasource in `src/test/resources/application-test.properties`.
+Tests use H2 in-memory (no Docker needed). Datasource overridden in `src/test/resources/application-test.properties`.
+
+### Rate Limiting
+
+Declared with `@RateLimit` on controller methods. `RateLimitService` uses Bucket4j in-memory — buckets are keyed by `USER:{userId}` or `IP:{ip}`. On exceeded limit, throws `BusinessException` → 429 response with `Retry-After` header. Frontend interceptor in `lib/apiClient.ts` catches 429 and rethrows with `{ isRateLimit: true, retryAfterSeconds }`.
+
+Current limits: `POST /api/v1/analyze/trial` — 3 req/day/IP; `POST /api/v1/analyze/full` — 10 req/hour/user.
 
 ## Infrastructure
 
 Prod: EC2 t4g.small (ARM64) → Caddy (reverse proxy + auto HTTPS) → Spring Boot :8080 → Postgres :5432 (Docker, internal only) + S3 (`glowmax-leaderboard-avatars`). DNS via Cloudflare. ~$15-18/month.
 
-CI/CD: `.github/workflows/backend.yml` — `test` job runs on every PR; `build-and-deploy` job builds ARM64 Docker image → ghcr.io → SSH deploy to EC2 on push to `main`. Requires GitHub Secrets: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`.
+CI/CD: `.github/workflows/backend.yml` — `test` job on every PR; `build-and-deploy` builds ARM64 Docker image → ghcr.io → SSH deploy to EC2 on push to `main`. GitHub Secrets required: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY`.
+
+## Gotchas
+
+### iOS EAS build: `RCT-Folly` podspec not found
+
+**Symptom:** EAS iOS build fails at `pod install` with:
+```
+[!] Unable to find a specification for `RCT-Folly` depended upon by `react-native-worklets-core`
+```
+
+**Cause:** RN 0.83 ships prebuilt `ReactNativeDependencies` (Folly bundled inside the tarball — no standalone `RCT-Folly` podspec exposed). `react-native-vision-camera` v4.6 auto-installs `react-native-worklets-core` as an optional peer dep to enable Frame Processors, and worklets-core's podspec requires the standalone `RCT-Folly` pod.
+
+**Fix:** force RN to build from source via `expo-build-properties` in `app.json`:
+```json
+["expo-build-properties", {
+  "ios": { "deploymentTarget": "16.0", "buildReactNativeFromSource": true }
+}]
+```
+First build is ~10–15 min slower; subsequent builds are cached. Do **not** disable Frame Processors — `lib/faceCoords.ts` depends on them for AR overlay.
+
+### EAS build: lockfile out of sync with npm version
+
+**Symptom:** `npm ci` fails with `Missing: react-native-worklets@X.Y.Z from lock file` (or similar) for packages that don't match what's in `package.json`.
+
+**Cause:** EAS Build workers use Node 20 / npm 10; if the lockfile was generated with npm 11 (Node 22+), npm 10 may consider transitive entries missing. Also, `react-native-reanimated: ^4.x` and `react-native-worklets: ^0.x` must stay compatible — Reanimated 4.3+ requires Worklets 0.8+.
+
+**Fix:**
+1. Ensure `frontend/.npmrc` contains `legacy-peer-deps=true`
+2. Regenerate the lockfile with npm 10: `npx npm@10.9.3 install --ignore-scripts` from `frontend/`
+3. Keep `react-native-worklets` at `^0.8.0` or newer to match the Reanimated version resolved by `^4.2.1`
+
+**Note:** The `EXPO_USE_PRECOMPILED_MODULES=1` warning in EAS logs is non-fatal — it's a side effect of `buildReactNativeFromSource: true` and is expected.
