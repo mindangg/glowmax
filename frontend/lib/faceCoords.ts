@@ -145,10 +145,10 @@ export function buildFaceCoords(
   const jawY    = mouthY + (chinY - mouthY) * 0.55;
   const rawLEar = lm?.LEFT_EAR
     ? { x: lm.LEFT_EAR.x * imgW, y: lm.LEFT_EAR.y * imgH }
-    : { x: faceLeft, y: faceTop + faceH * 0.50 };
+    : { x: faceLeft + faceW * 0.10, y: faceTop + faceH * 0.50 };
   const rawREar = lm?.RIGHT_EAR
     ? { x: lm.RIGHT_EAR.x * imgW, y: lm.RIGHT_EAR.y * imgH }
-    : { x: faceLeft + faceW, y: faceTop + faceH * 0.50 };
+    : { x: faceLeft + faceW * 0.90, y: faceTop + faceH * 0.50 };
   const lEar      = pt(rawLEar.x, rawLEar.y);
   const rEar      = pt(rawREar.x, rawREar.y);
   const leftJawX  = Math.min(lEar.x, rEar.x);

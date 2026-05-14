@@ -10,7 +10,7 @@ import {
 const STORAGE_KEY = 'glowmax_subscription';
 
 export function useSubscription() {
-  const [isPaid, setIsPaid] = useState(false);
+  const [isPaid, setIsPaid] = useState(__DEV__ ? true : false);
   const [isTrialUsed, setIsTrialUsed] = useState(false);
 
   useEffect(() => {

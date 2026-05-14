@@ -5,7 +5,7 @@ import { PSL_TIER_ORDER } from '../lib/constants';
 import { LeaderboardEntry } from '../types';
 
 // Mock fallback khi DB trống hoặc backend chưa chạy
-const TEST_USER_URI = Image.resolveAssetSource(require('../assets/test_user.png')).uri;
+const TEST_USER_URI = Image.resolveAssetSource(require('../assets/images/face.png')).uri;
 
 const MOCK_LEADERBOARD: LeaderboardEntry[] = [
   { username: 'glowmax',    overall_score: 8.9, combined_score: 97, rank: 1,  total_users: 1247, psl_tier: 'True Chang', potential_tier: 'True Chang', appeal_score: 9.1, jaw_score: 8.7, eyes_score: 8.9, nose_score: 8.4, hair_score: 8.2, photo_url: TEST_USER_URI, style_type: 'Old money' },

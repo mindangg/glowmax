@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { Dimensions, Image, StatusBar, StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, {useEffect, useState} from 'react';
+import {Dimensions, Image, StatusBar, StyleSheet, View} from 'react-native';
+import Animated, {useAnimatedStyle} from 'react-native-reanimated';
+import {useLocalSearchParams, useRouter} from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePSLScanAnimation } from '../../hooks/usePSLScanAnimation';
+import {usePSLScanAnimation} from '../../hooks/usePSLScanAnimation';
 import ScanOverlay from '../../components/scan/ScanOverlay';
 import MetricCard from '../../components/scan/MetricCard';
 import GoldReferenceLine from '../../components/scan/GoldReferenceLine';
 import ScanProgressBar from '../../components/scan/ScanProgressBar';
-import { FaceCoords, FACE_COORDS_STORAGE_KEY } from '../../lib/faceCoords';
+import {FACE_COORDS_STORAGE_KEY, FaceCoords} from '../../lib/faceCoords';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -138,16 +138,18 @@ export default function ScanScreen() {
       <Animated.View style={[styles.scanLine, scanLineAnimatedStyle]} />
 
       {/* Gold reference line — horizontal, moves per metric group */}
-      <GoldReferenceLine yPosition={goldLineY} />
+      <GoldReferenceLine yPosition={goldLineY} leftX={faceCoords.zygoLeftX} rightX={faceCoords.zygoRightX} />
 
       {/* SVG AR overlay lines for current metric — remounted per metric for fade in/out.
           Only rendered once faceCoords are loaded (AsyncStorage read is fast,
           always completes before the first 1.2s metric window ends). */}
-      <ScanOverlay
-        key={currentMetricIndex}
-        currentMetric={currentMetric}
-        faceCoords={faceCoords}
-      />
+      {faceCoords && (
+        <ScanOverlay
+          key={currentMetricIndex}
+          currentMetric={currentMetric}
+          faceCoords={faceCoords}
+        />
+      )}
 
       {/* Metric card — bottom card cycling through 20 metrics */}
       <MetricCard

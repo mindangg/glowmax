@@ -175,9 +175,11 @@ export default function WhyNowScreen() {
               <View style={styles.placeholderSquare}>
                 <Image
                     style={{
-                      width: 150,
-                      height: 120,
+                      width: 136,
+                      height: 105,
                       backgroundColor: 'transparent',
+                      marginRight: 40,
+                      marginBottom: 20,
                     }}
                     source={back}
                     resizeMode="contain"

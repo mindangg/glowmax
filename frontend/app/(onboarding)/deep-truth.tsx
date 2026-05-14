@@ -154,9 +154,8 @@ export default function DeepTruthScreen() {
               </View>
             </View>
             <Text style={[styles.sectionBody, { marginTop: -10 }]}>
-              TRUNG BÌNH MỌI NGƯỜI KIẾM THÊM{' '}
-              <Text style={styles.sectionBodyBold}>$500 NHIỀU HƠN</Text>
-              {' '}CHO MỖI INCH CAO HƠN 6FT.
+              TRUNG BÌNH, NGƯỜI CAO TRÊN 1M80 THƯỜNG CÓ THU NHẬP CAO HƠN{' '}
+              <Text style={styles.sectionBodyBold}>KHOẢNG 12 TRIỆU VND</Text>.
             </Text>
           </Animated.View>
 
