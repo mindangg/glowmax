@@ -72,7 +72,7 @@ Auth is fully on the Spring Boot REST API. `lib/supabase.ts` does not exist.
 
 1. **App boot** — `ensureAnonymousAuth()` (`lib/auth.ts`) checks SecureStore for an existing token; if absent, calls `POST /api/v1/auth/anonymous` and stores the returned JWT pair.
 2. **Google Sign-In** — `expo-auth-session` uses `response_type=id_token` implicit flow (no PKCE, no server-side code exchange) → `POST /api/v1/auth/oauth/google/callback` with `anonymous_user_id` → backend verifies via Google JWKS → merges the anonymous account → stores new JWT pair.
-3. **Apple Sign-In** — `expo-apple-authentication` → `identity_token` → `POST /api/v1/auth/oauth/apple/callback` → same merge flow. Backend fully implemented; blocked on Apple Developer approval.
+3. **Apple Sign-In** — `expo-apple-authentication` → `identity_token` → `POST /api/v1/auth/oauth/apple/callback` → same merge flow. Backend fully implemented; blocked on Apple Developer approval. **Apple only returns the user's email on the very first sign-in**; subsequent sign-ins return null — the backend must store it on first sign-in.
 4. **Token refresh** — Axios interceptor in `lib/apiClient.ts` auto-retries on 401 using the stored refresh token (`POST /api/v1/auth/refresh`), then replays the original request. Refresh tokens do **not** rotate — the old token stays valid until logout.
 
 `lib/auth.ts` exports: `ensureAnonymousAuth`, `signInWithProvider`, `upsertProfile`, `checkUsernameAvailable`, `getCurrentProfile`, `signOut`.
@@ -91,13 +91,17 @@ Auth is fully on the Spring Boot REST API. `lib/supabase.ts` does not exist.
 | `useLeaderboard` | No state — fetch functions only | — |
 | `useDailyTasks` | `useState` + AsyncStorage | ✅ Cross-session |
 
-`scanStore` is not persisted intentionally — scan results are always fresh per session.
+`scanStore` is not persisted intentionally — scan results are always fresh per session. Photo URIs (`frontPhoto`, `sidePhoto`) are stored in `scanStore` (not AsyncStorage) to survive the camera→scan screen transition within a session.
+
+`useSubscription` loads the cached state from AsyncStorage immediately (optimistic), then verifies async with RevenueCat. Three states exist: trial-available → trial-used-but-not-paid → active-paid. `markTrialUsed()` is irreversible.
+
+`useDailyTasks` keys completed tasks by `daily_YYYY-MM-DD` — each date is a separate persisted Set, so old days' state is preserved without clearing.
 
 All HTTP calls go through `lib/apiClient.ts` (central Axios instance), never fetch directly.
 
 ### Key Libraries
 
-- **HTTP client:** `lib/apiClient.ts` — Axios with `EXPO_PUBLIC_API_BASE_URL`; request interceptor attaches Bearer token; response interceptor handles 401 auto-refresh and 429 rate-limit errors (throws with `isRateLimit: true` + `retryAfterSeconds`). Use `getApiErrorMessage()` for user-facing strings.
+- **HTTP client:** `lib/apiClient.ts` — Axios with `EXPO_PUBLIC_API_BASE_URL`; request interceptor attaches Bearer token; response interceptor handles 401 auto-refresh (uses a raw axios call — not `api` — to avoid interceptor recursion; guarded by `_retried` flag to prevent loops) and 429 rate-limit errors (throws with `isRateLimit: true` + `retryAfterSeconds`). Use `getApiErrorMessage()` for user-facing strings.
 - **Token storage:** `lib/tokenUtils.ts` — JWT in `expo-secure-store` on native, AsyncStorage on web. Exports `saveTokens`, `clearTokens`, `getAccessToken`, `getRefreshToken`, `decodeUserId`, `isAnonymousToken`.
 - **Animations:** `react-native-reanimated` v4 + `react-native-worklets` — staggered `FadeInDown` on screen entry is the standard pattern.
 - **Image processing:** `expo-image-manipulator` — EXIF rotation fix, center-crop to viewfinder ratio (~0.765), JPEG 0.85 compression.
@@ -116,7 +120,7 @@ All HTTP calls go through `lib/apiClient.ts` (central Axios instance), never fet
 
 **`TrialResult` type** (`types/index.ts`): `{ overall_score, psl_tier, teaser }` — matches `TrialScanResponse` from backend. Does **not** contain `rank` or `total_users` (those come from `submitScore` in `useLeaderboard`).
 
-**`combined_score` formula:** `overall_score × 7 + tier_index × 5`. Computed client-side in `useLeaderboard.submitScore` for optimistic display; backend recomputes authoritatively.
+**`combined_score` formula:** `overall_score × 7 + tier_index × 5`. Computed client-side in `useLeaderboard.submitScore` for optimistic display; backend recomputes authoritatively. Leaderboard scores **never decrease** — the backend uses `GREATEST(existing, new)` on upsert. `useLeaderboard` falls back to a hardcoded `MOCK_LEADERBOARD` on network failure to preserve UX when the DB is empty.
 
 `lib/infoContent.ts` — `INFO_SECTIONS` (22) and `INFO_CATEGORIES` (5) for the premium Info tab, linked from daily tasks via `infoKey`.
 
@@ -141,7 +145,9 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=...
 
 **All services are fully implemented.** Jackson is configured with `SNAKE_CASE` naming strategy — Java `camelCase` fields serialize to `snake_case` JSON automatically.
 
-Mobile app sends OAuth `id_token` directly — backend verifies signature via JWKS (no server-side code exchange needed).
+Mobile app sends OAuth `id_token` directly — backend verifies signature via JWKS (no server-side code exchange needed). JWKS keys are fetched on-demand with no local cache.
+
+When an OAuth callback arrives with `anonymousUserId`, the backend **merges** the anonymous account into the OAuth identity: the `user_id` is preserved unchanged, `is_anonymous` flips to false, and all historical scores and profile data are retained.
 
 ### API Endpoints
 
@@ -181,6 +187,8 @@ Tests use H2 in-memory (no Docker needed). Datasource overridden in `src/test/re
 Declared with `@RateLimit` on controller methods. `RateLimitService` uses Bucket4j in-memory — buckets are keyed by `USER:{userId}` or `IP:{ip}`. On exceeded limit, throws `BusinessException` → 429 response with `Retry-After` header. Frontend interceptor in `lib/apiClient.ts` catches 429 and rethrows with `{ isRateLimit: true, retryAfterSeconds }`.
 
 Current limits: `POST /api/v1/analyze/trial` — 3 req/day/IP; `POST /api/v1/analyze/full` — 10 req/hour/user.
+
+Rate limiting is **in-memory only** (Bucket4j, not Redis-backed) — buckets are not shared across JVM instances. Horizontal scaling would require switching to Redis.
 
 ## Infrastructure
 

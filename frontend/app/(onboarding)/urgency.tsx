@@ -1,18 +1,11 @@
-import React, { useEffect } from 'react';
-import {View, StyleSheet, Dimensions, Image} from 'react-native';
-import { useRouter } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  Easing,
-} from 'react-native-reanimated';
-import Svg, { Rect, Circle, Line } from 'react-native-svg';
+import React, {useEffect} from 'react';
+import {Dimensions, Image, StyleSheet, View} from 'react-native';
+import {useRouter} from 'expo-router';
+import Animated, {Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming,} from 'react-native-reanimated';
 import TrailBackground from '../../components/backgrounds/TrailBackground';
 import MixedText from '../../components/ui/MixedText';
 import FrostedButton from '../../components/ui/FrostedButton';
-import { COLORS, FONTS } from '../../lib/constants';
+import {COLORS} from '../../lib/constants';
 
 const clock = require('../../assets/images/clock.png');
 

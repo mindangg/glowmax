@@ -117,61 +117,60 @@ async function signInWithApple(): Promise<SignInResult> {
 
 async function signInWithGoogle(): Promise<SignInResult> {
   try {
-    // Fetch Google's OIDC discovery document (chứa endpoints: authorization_endpoint, token_endpoint, jwks_uri...)
     const discovery = await AuthSession.fetchDiscoveryAsync('https://accounts.google.com');
 
-    // Client ID tuỳ platform
     const clientId = Platform.OS === 'ios' ? GOOGLE_CLIENT_ID_IOS : GOOGLE_CLIENT_ID_ANDROID;
     if (!clientId) {
       return { ok: false, error: 'Google Client ID chưa được cấu hình.' };
     }
 
-    // Redirect URI phải khớp với "Authorized redirect URIs" trong Google Cloud Console
-    // Scheme "glowmax" phải khai báo trong app.json (expo.scheme = "glowmax")
+    // Custom scheme redirect — must be registered in Google Cloud Console
+    // For iOS Application client type: add glowmax://auth/callback as an authorized redirect URI
     const redirectUri = AuthSession.makeRedirectUri({
       scheme: 'glowmax',
       path: 'auth/callback',
     });
 
-    // Tạo OAuth request với response_type=id_token (implicit flow)
-    // Backend chỉ cần id_token để verify identity — không cần authorization code
+    // Authorization code + PKCE flow (Google deprecated implicit id_token flow for native apps)
     const request = new AuthSession.AuthRequest({
       clientId,
       redirectUri,
       scopes: ['openid', 'email', 'profile'],
-      responseType: AuthSession.ResponseType.IdToken,
-      usePKCE: false, // id_token implicit flow không dùng PKCE
-      extraParams: {
-        nonce: Math.random().toString(36).slice(2), // chống replay attack
-      },
+      responseType: AuthSession.ResponseType.Code,
+      usePKCE: true,
     });
 
-    // Mở browser → user đăng nhập Google → browser redirect về app với id_token
     const result = await request.promptAsync(discovery);
 
     if (result.type !== 'success') {
       return { ok: false, error: 'Đăng nhập bị hủy.' };
     }
 
-    const idToken = result.params?.id_token;
+    // Exchange authorization code for tokens using PKCE verifier (no client secret needed for native apps)
+    const tokenResult = await AuthSession.exchangeCodeAsync(
+      {
+        clientId,
+        redirectUri,
+        code: result.params.code,
+        extraParams: { code_verifier: request.codeVerifier ?? '' },
+      },
+      discovery,
+    );
+
+    const idToken = tokenResult.idToken;
     if (!idToken) {
       return { ok: false, error: 'Không nhận được token từ Google.' };
     }
 
-    // Lấy anonymous user ID nếu đang có anon session → backend merge account
-    // anonymousUserId = null nếu user chưa bao giờ anon auth (không thường xảy ra)
     const currentToken = await getAccessToken();
     const anonymousUserId = decodeUserId(currentToken);
 
-    // POST id_token lên backend → backend verify với Google JWKS → trả JWT pair
     const { data } = await api.post('/api/v1/auth/oauth/google/callback', {
       id_token: idToken,
-      anonymous_user_id: anonymousUserId, // null = không merge; backend handle gracefully
+      anonymous_user_id: anonymousUserId,
     });
 
     await saveTokens(data.access_token, data.refresh_token);
-
-    // linked = true nếu có anon account bị merge (user_id không đổi, data preserved)
     return { ok: true, linked: !!anonymousUserId };
   } catch (err) {
     return { ok: false, error: getApiErrorMessage(err, 'Đăng nhập thất bại.') };

@@ -46,7 +46,7 @@ export default function ScanScreen() {
   const router = useRouter();
   const { photoUri: paramPhotoUri } = useLocalSearchParams<{ photoUri: string }>();
   const [photoUri, setPhotoUri] = useState<string | null>(paramPhotoUri || null);
-  const [faceCoords, setFaceCoords] = useState<FaceCoords | null>(null);
+  const [faceCoords, setFaceCoords] = useState<FaceCoords>(makeFallback);
 
   const {
     currentMetric,
@@ -55,7 +55,7 @@ export default function ScanScreen() {
     scanLineY,
     goldLineY,
     isComplete,
-  } = usePSLScanAnimation();
+  } = usePSLScanAnimation(faceCoords);
 
   // Animated style for the moving scan line (absolute pixel Y)
   const scanLineAnimatedStyle = useAnimatedStyle(() => ({
@@ -143,13 +143,11 @@ export default function ScanScreen() {
       {/* SVG AR overlay lines for current metric — remounted per metric for fade in/out.
           Only rendered once faceCoords are loaded (AsyncStorage read is fast,
           always completes before the first 1.2s metric window ends). */}
-      {faceCoords && (
-        <ScanOverlay
-          key={currentMetricIndex}
-          currentMetric={currentMetric}
-          faceCoords={faceCoords}
-        />
-      )}
+      <ScanOverlay
+        key={currentMetricIndex}
+        currentMetric={currentMetric}
+        faceCoords={faceCoords}
+      />
 
       {/* Metric card — bottom card cycling through 20 metrics */}
       <MetricCard

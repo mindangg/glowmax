@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dimensions } from 'react-native';
 import {
   useSharedValue,
@@ -7,39 +7,44 @@ import {
   Easing,
 } from 'react-native-reanimated';
 import { SCAN_METRICS } from '../lib/metrics';
+import { FaceCoords } from '../lib/faceCoords';
 
 const SCREEN_H = Dimensions.get('window').height;
 const METRIC_DURATION = 1200; // 1.2s per metric — 20 × 1.2 = 24s total
-const SCAN_LINE_DURATION = 2500; // full top-to-bottom sweep
+const SCAN_LINE_DURATION = 2500; // full face-region sweep
 const TOTAL_DURATION = METRIC_DURATION * SCAN_METRICS.length; // 24s
 
-export function usePSLScanAnimation() {
+export function usePSLScanAnimation(faceCoords: FaceCoords) {
   const [currentMetricIndex, setCurrentMetricIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const indexRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const faceCoordsRef = useRef(faceCoords);
+  faceCoordsRef.current = faceCoords;
 
   // --- Shared values (UI thread) ---
-  // Continuous scan line: sweeps top→bottom repeatedly (absolute pixels)
-  const scanLineY = useSharedValue(0);
-  // Gold reference line: jumps per metric group (0-1 fraction)
-  const goldLineY = useSharedValue(SCAN_METRICS[0].goldLineYPercent / 100);
+  // Scan line: sweeps foreheadY→neckY repeatedly (absolute pixels)
+  const scanLineY = useSharedValue(faceCoords.foreheadY);
+  // Gold reference line: jumps per metric (0-1 fraction of screen height)
+  const goldLineY = useSharedValue(faceCoords[SCAN_METRICS[0].faceYKey] / SCREEN_H);
   // Progress bar: 0→1
   const progress = useSharedValue(0);
 
-  const startAnimation = useCallback(() => {
-    // Continuous scan line — repeats top→bottom infinitely
-    scanLineY.value = 0;
+  // Restart scan line whenever faceCoords updates (fallback → real coords)
+  useEffect(() => {
+    scanLineY.value = faceCoords.foreheadY;
     scanLineY.value = withRepeat(
-      withTiming(SCREEN_H, {
+      withTiming(faceCoords.neckY, {
         duration: SCAN_LINE_DURATION,
         easing: Easing.linear,
       }),
       -1,
-      false
+      false,
     );
+  }, [faceCoords]);
 
-    // Progress bar: smooth linear increase over the full duration
+  // Start metric timer chain + progress bar on mount
+  useEffect(() => {
     progress.value = withTiming(1, {
       duration: TOTAL_DURATION,
       easing: Easing.linear,
@@ -57,8 +62,9 @@ export function usePSLScanAnimation() {
       const metric = SCAN_METRICS[indexRef.current];
       setCurrentMetricIndex(indexRef.current);
 
-      // Gold reference line jumps to metric's Y position
-      goldLineY.value = withTiming(metric.goldLineYPercent / 100, {
+      // Gold reference line jumps to the metric's corresponding face Y coordinate
+      const F = faceCoordsRef.current;
+      goldLineY.value = withTiming(F[metric.faceYKey] / SCREEN_H, {
         duration: 300,
         easing: Easing.inOut(Easing.ease),
       });
@@ -67,14 +73,10 @@ export function usePSLScanAnimation() {
     };
 
     timerRef.current = setTimeout(advance, METRIC_DURATION);
-  }, []);
-
-  useEffect(() => {
-    startAnimation();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [startAnimation]);
+  }, []);
 
   const currentMetric = SCAN_METRICS[currentMetricIndex];
 

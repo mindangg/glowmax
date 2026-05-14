@@ -1,0 +1,177 @@
+# =============================================================================
+# ci-cd.yml — CI/CD cho Glowmax backend
+# =============================================================================
+# 2 jobs:
+#   - test:    Mỗi PR + push main → compile + H2 test
+#   - deploy:  Chỉ khi push main + test pass → build JAR → build ARM64 image
+#              → push ghcr.io → SSH EC2 → chạy deploy.sh
+#
+# GitHub Secrets cần setup (Settings → Secrets and variables → Actions):
+#   - EC2_HOST       Elastic IP của EC2
+#   - EC2_SSH_KEY    Nội dung file .pem (kể cả header/footer)
+#
+# deploy.sh cần có sẵn trên EC2 tại /home/ubuntu/deploy.sh:
+#   #!/bin/bash
+#   set -e
+#   echo "$CR_PAT" | docker login ghcr.io -u mindang --password-stdin
+#   cd /opt/glowmax/infra
+#   docker compose -f docker-compose.prod.yml stop --timeout 35 api
+#   docker compose -f docker-compose.prod.yml pull api
+#   docker compose -f docker-compose.prod.yml up -d api
+#   docker image prune -f
+# =============================================================================
+
+name: CI/CD
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-cd.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-cd.yml'
+
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # JOB 1: TEST — chạy mỗi PR + push main
+  # ===========================================================================
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: glowmax_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Run tests
+        run: ./mvnw verify --batch-mode --no-transfer-progress -Dspring.profiles.active=test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/glowmax_test
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: test
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: backend/target/surefire-reports/
+
+  # ===========================================================================
+  # JOB 2: DEPLOY — chỉ chạy khi push main + test pass
+  # ===========================================================================
+  deploy:
+    name: Deploy to EC2
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      # Reuse cache từ test job (cùng key → hit ngay, không tải lại)
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Build JAR
+        run: ./mvnw package -DskipTests --batch-mode --no-transfer-progress
+        working-directory: backend
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/glowmax-api
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Build & Push ARM64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: SSH & Deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: /opt/glowmax/deploy.sh
+
+      # TODO: health check sau khi Spring Boot khởi động (~30s)
+      # Thêm sau khi có domain production
+      # - name: Health check
+      #   run: |
+      #     for i in {1..10}; do
+      #       if curl -fsS https://<domain>/actuator/health | grep -q '"status":"UP"'; then
+      #         echo "Healthy"; exit 0
+      #       fi
+      #       echo "Attempt $i, retrying in 10s..."; sleep 10
+      #     done
+      #     echo "Health check failed"; exit 1

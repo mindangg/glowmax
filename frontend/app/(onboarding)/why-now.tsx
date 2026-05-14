@@ -1,18 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {View, Text, StyleSheet, ScrollView, Image} from 'react-native';
-import { useRouter } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-} from 'react-native-reanimated';
+import React, {useEffect, useRef, useState} from 'react';
+import {Image, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {useRouter} from 'expo-router';
+import Animated, {useAnimatedStyle, useSharedValue, withDelay, withTiming,} from 'react-native-reanimated';
 import TrailBackground from '../../components/backgrounds/TrailBackground';
 import FrostedButton from '../../components/ui/FrostedButton';
-import { COLORS, FONTS } from '../../lib/constants';
+import {COLORS, FONTS} from '../../lib/constants';
 
 const face = require('../../assets/images/face.png');
 const body = require('../../assets/images/body.png');
+const back = require('../../assets/images/back.png');
 
 
 function useTypingSequence(
@@ -177,7 +173,15 @@ export default function WhyNowScreen() {
               </Text>
               {/* TODO: replace with muscular back image */}
               <View style={styles.placeholderSquare}>
-                <Text style={styles.placeholderLabel}>BACK</Text>
+                <Image
+                    style={{
+                      width: 150,
+                      height: 120,
+                      backgroundColor: 'transparent',
+                    }}
+                    source={back}
+                    resizeMode="contain"
+                />
               </View>
             </View>
             <Text style={styles.sectionBody}>

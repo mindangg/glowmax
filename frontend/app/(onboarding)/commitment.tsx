@@ -23,7 +23,8 @@ const LEVELS = [
 
 export default function CommitmentScreen() {
   const router = useRouter();
-  const { answers, setAnswer } = useOnboarding();
+  const { setAnswer } = useOnboarding();
+  const [selected, setSelected] = React.useState<string | null>(null);
 
   const titleOpacity = useSharedValue(0);
   const optionsOpacity = useSharedValue(0);
@@ -52,8 +53,8 @@ export default function CommitmentScreen() {
             <OptionCard
               key={l.key}
               label={l.label}
-              selected={answers.commitment === l.key}
-              onPress={() => setAnswer('commitment', l.key)}
+              selected={selected === l.key}
+              onPress={() => setSelected(l.key)}
             />
           ))}
         </Animated.View>
@@ -61,8 +62,11 @@ export default function CommitmentScreen() {
         <Animated.View style={[styles.ctaWrapper, ctaStyle]}>
           <FrostedButton
             label="TIẾP TỤC"
-            onPress={() => router.push('/(onboarding)/reviews')}
-            disabled={!answers.commitment}
+            onPress={() => {
+              setAnswer('commitment', selected);
+              router.push('/(onboarding)/reviews');
+            }}
+            disabled={!selected}
           />
         </Animated.View>
       </View>

@@ -1,3 +1,5 @@
+import type { FaceCoords } from '../lib/faceCoords';
+
 export interface OnboardingAnswers {
   gender: 'male' | 'female' | null;
   age: number | null;
@@ -18,6 +20,7 @@ export interface ScanMetric {
   name: string;
   subtitle: string;
   goldLineYPercent: number;
+  faceYKey: keyof Pick<FaceCoords, 'eyeY' | 'noseBridgeY' | 'noseTipY' | 'mouthY' | 'jawY' | 'chinY' | 'foreheadY' | 'zygoY' | 'neckY'>;
   overlayType: 'horizontal' | 'vertical' | 'rectangle' | 'vshape' | 'angle' | 'dots' | 'cross' | 'dual_horizontal';
   bustHighlightArea: 'eyes' | 'nose' | 'jaw' | 'mouth' | 'chin' | 'forehead' | 'cheeks' | 'full';
 }
