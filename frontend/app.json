@@ -27,7 +27,14 @@
         "NSPhotoLibraryUsageDescription": "GLOWMAX cần quyền truy cập thư viện ảnh để chọn ảnh phân tích khuôn mặt.",
         "NSPhotoLibraryAddUsageDescription": "GLOWMAX cần quyền lưu ảnh vào thư viện.",
         "NSCameraUsageDescription": "GLOWMAX cần quyền truy cập camera để phân tích khuôn mặt của bạn.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.1071608779721-b1stcv21qoreqeahk9504lgr2nt36vh2"
+            ]
+          }
+        ]
       }
     },
     "android": {

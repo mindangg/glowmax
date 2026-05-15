@@ -20,10 +20,13 @@ export function useSubscription() {
       if (stored) {
         try {
           const { isPaid: p, isTrialUsed: t } = JSON.parse(stored);
-          setIsPaid(p);
+          if (!__DEV__) setIsPaid(p);
           setIsTrialUsed(t);
         } catch {}
       }
+
+      // Skip RevenueCat verification in dev — keep isPaid=true to bypass paywall
+      if (__DEV__) return;
 
       // Then verify with RevenueCat
       const { isActive } = await checkSubscription();

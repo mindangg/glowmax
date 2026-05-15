@@ -187,6 +187,13 @@ export default function CameraScreen() {
           )}
         </View>
 
+        {/* Photo tip */}
+        {!frontPhoto && (
+          <Text style={styles.tipText}>
+            Mặt nhìn thẳng • Đủ sáng • Mặc trang phục lịch sự
+          </Text>
+        )}
+
         {/* Pagination dots */}
         <View style={styles.dotsRow}>
           <View style={[styles.dot, styles.dotActive]} />
@@ -332,6 +339,16 @@ const styles = StyleSheet.create({
     bottom: 14,
     right: 14,
     padding: 4,
+  },
+
+  tipText: {
+    fontFamily: FONTS.MONO,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginTop: 14,
+    paddingHorizontal: 24,
   },
 
   // Pagination

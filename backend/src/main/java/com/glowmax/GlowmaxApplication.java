@@ -15,7 +15,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 public class GlowmaxApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(GlowmaxApplication.class, args);
     }

@@ -106,15 +106,15 @@ export default function CategoryDetailScreen() {
             {catData && (
               <>
                 <Text style={styles.overallScore}>
-                  {catData.overallScore.toFixed(1)}/10
+                  {catData.overall_score.toFixed(1)}/10
                 </Text>
-                <ScoreBar score={catData.overallScore} />
+                <ScoreBar score={catData.overall_score} />
               </>
             )}
 
-            {isAppeal && results?.pslResult?.psl_tier && (
+            {isAppeal && results?.psl_result?.psl_tier && (
               <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>{results.pslResult.psl_tier}</Text>
+                <Text style={styles.rankText}>{results.psl_result.psl_tier}</Text>
               </View>
             )}
           </Animated.View>

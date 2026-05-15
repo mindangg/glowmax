@@ -124,12 +124,10 @@ async function signInWithGoogle(): Promise<SignInResult> {
       return { ok: false, error: 'Google Client ID chưa được cấu hình.' };
     }
 
-    // Custom scheme redirect — must be registered in Google Cloud Console
-    // For iOS Application client type: add glowmax://auth/callback as an authorized redirect URI
-    const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'glowmax',
-      path: 'auth/callback',
-    });
+    // Native redirect URI = reversed client ID (Google iOS/Android OAuth client pattern).
+    // Bundle ID + reversed scheme must be registered in Google Cloud Console + app.json CFBundleURLSchemes.
+    const reversedClientId = `com.googleusercontent.apps.${clientId.replace('.apps.googleusercontent.com', '')}`;
+    const redirectUri = `${reversedClientId}:/oauthredirect`;
 
     // Authorization code + PKCE flow (Google deprecated implicit id_token flow for native apps)
     const request = new AuthSession.AuthRequest({

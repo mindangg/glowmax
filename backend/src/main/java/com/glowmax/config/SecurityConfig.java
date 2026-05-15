@@ -10,7 +10,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,6 +47,8 @@ public class SecurityConfig {
           http.csrf(c -> c.disable())
               .cors(c -> c.configurationSource(corsSource()))
               .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+              .exceptionHandling(e -> e
+                  .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
               .authorizeHttpRequests(a -> a
                   .requestMatchers("/api/v1/auth/**").permitAll()
                   .requestMatchers(HttpMethod.GET, "/api/v1/leaderboard", "/api/v1/leaderboard/search").permitAll()

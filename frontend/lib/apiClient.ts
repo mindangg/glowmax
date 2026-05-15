@@ -57,7 +57,7 @@ api.interceptors.response.use(
         if (refreshToken) {
           // Gọi refresh endpoint trực tiếp (không qua `api` để tránh interceptor loop)
           const { data } = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, {
-            refreshToken,
+            refresh_token: refreshToken,
           });
 
           // Lưu tokens mới

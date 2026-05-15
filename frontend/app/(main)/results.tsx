@@ -63,7 +63,7 @@ export default function ResultsRouter() {
   // Helper: build category score averages for submit / ScoreCard
   function getCategoryScores() {
     const cats = fullResults?.categories ?? [];
-    const get = (c: string) => cats.find((x) => x.category === c)?.overallScore;
+    const get = (c: string) => cats.find((x) => x.category === c)?.overall_score;
     return {
       appeal_score: get('appeal'),
       jaw_score:    get('jaw'),
@@ -153,9 +153,9 @@ export default function ResultsRouter() {
   };
 
   const handleViewMyScore = () => {
-    const pslData    = fullResults?.pslResult;
+    const pslData    = fullResults?.psl_result;
     const catScores  = getCategoryScores();
-    const appealScore = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+    const appealScore = fullResults?.categories.find(c => c.category === 'appeal')?.overall_score ?? 0;
     const tierIndex   = pslData?.psl_tier
       ? ['Sub 3', 'Sub 5', 'LTN', 'MTN', 'HTN', 'Chang', 'True Chang'].indexOf(pslData.psl_tier)
       : -1;
@@ -185,7 +185,7 @@ export default function ResultsRouter() {
     ({ item }: { item: CarouselItem }) => {
       if (item === 'psl') {
         const locked  = isCardLocked(item);
-        const pslData = fullResults?.pslResult;
+        const pslData = fullResults?.psl_result;
         return (
           <View style={{ width: CARD_WIDTH, paddingVertical: 10, marginHorizontal: CARD_GAP / 2 }}>
             <PSLCard
@@ -205,7 +205,7 @@ export default function ResultsRouter() {
         return (
           <View style={{ width: CARD_WIDTH, paddingVertical: 10, marginHorizontal: CARD_GAP / 2 }}>
             <AppealCard
-              score={isPaid && appealData ? appealData.overallScore : null}
+              score={isPaid && appealData ? appealData.overall_score : null}
               locked={locked}
             />
           </View>
@@ -220,7 +220,7 @@ export default function ResultsRouter() {
           <ResultCard
             title={catData?.title ?? item.toUpperCase()}
             metrics={fullData?.metrics ?? []}
-            overallScore={fullData?.overallScore ?? 0}
+            overallScore={fullData?.overall_score ?? 0}
             locked={locked}
             category={item as ResultCategory}
           />
@@ -241,7 +241,7 @@ export default function ResultsRouter() {
   const doSubmit = async (isPublic: boolean) => {
     setShowRankModal(false);
     setRankSubmitted(true);
-    const score    = fullResults?.categories.find(c => c.category === 'appeal')?.overallScore ?? 0;
+    const score    = fullResults?.categories.find(c => c.category === 'appeal')?.overall_score ?? 0;
     const username = answers.username ?? 'anonymous';
     const catScores = getCategoryScores();
 
@@ -249,15 +249,15 @@ export default function ResultsRouter() {
       overall_score:   score,
       username,
       is_public:       isPublic,
-      psl_tier:        fullResults?.pslResult.psl_tier,
-      potential_tier:  fullResults?.pslResult.potential_tier,
+      psl_tier:        fullResults?.psl_result?.psl_tier,
+      potential_tier:  fullResults?.psl_result?.potential_tier,
       appeal_score:    catScores.appeal_score,
       jaw_score:       catScores.jaw_score,
       eyes_score:      catScores.eyes_score,
       nose_score:      catScores.nose_score,
       hair_score:      catScores.hair_score,
       photo_uri:       isPublic && photoUri ? photoUri : undefined,
-      style_type:      fullResults?.pslResult.style_type,
+      style_type:      fullResults?.psl_result?.style_type,
     }).then(r => { if (r) setMyRank(r); });
   };
 

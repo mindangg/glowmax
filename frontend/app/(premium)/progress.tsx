@@ -76,10 +76,10 @@ export default function ProgressTab() {
   const { frontPhoto } = usePhotoCapture();
 
   // Score
-  const fullScore = fullResults?.categories.find((c) => c.category === 'appeal')?.overallScore ?? null;
+  const fullScore = fullResults?.categories.find((c) => c.category === 'appeal')?.overall_score ?? null;
   const overallScore = fullScore ?? trialResult?.overall_score ?? null;
-  const currentTier = fullResults?.pslResult?.psl_tier ?? null;
-  const potentialTier = fullResults?.pslResult?.potential_tier ?? (currentTier ? nextTier(currentTier) : null);
+  const currentTier = fullResults?.psl_result?.psl_tier ?? null;
+  const potentialTier = fullResults?.psl_result?.potential_tier ?? (currentTier ? nextTier(currentTier) : null);
 
   const potentialScore = useMemo(() => {
     if (overallScore === null) return null;

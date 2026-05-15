@@ -12,9 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Face analysis service — replace 2 Supabase Edge Functions (analyze-face + trial-scan).
@@ -33,15 +32,17 @@ public class AnalyzeService {
     private static final Set<String> VALID_TIERS = Set.of(
             "Sub 3", "Sub 5", "LTN", "MTN", "HTN", "Chang", "True Chang"
     );
-    private static final Pattern RANGE_PATTERN = Pattern.compile("([\\d.]+)\\s*[-–]\\s*([\\d.]+)");
 
     public FullAnalysisResponse analyze(UUID userId, AnalyzeRequest req) {
         validatePhoto(req.photo());
         String json = openAiService.analyzeFace(req.photo(), req.gender(), req.age());
+        checkRefusal(json, userId);
         try {
             FullAnalysisResponse response = parseFullAnalysis(json);
             validateFullAnalysis(response);
-            log.info("analyze completed userId={} tier={} model={}", userId, response.pslTier(), model);
+            int totalMetrics = response.categories().stream().mapToInt(c -> c.metrics().size()).sum();
+            log.info("analyze completed userId={} tier={} totalMetrics={} model={}",
+                    userId, response.pslResult().pslTier(), totalMetrics, model);
             return response;
         } catch (JsonProcessingException e) {
             log.error("Failed to parse OpenAI response userId={}", userId, e);
@@ -52,10 +53,12 @@ public class AnalyzeService {
     public TrialScanResponse trialScan(UUID userId, TrialScanRequest req) {
         validatePhoto(req.photo());
         String json = openAiService.analyzeFace(req.photo(), "unknown", 25);
+        checkRefusal(json, userId);
         try {
             JsonNode root = objectMapper.readTree(json);
-            BigDecimal overallScore = toDecimal(root.path("overall_score"));
-            String pslTier = root.path("psl_tier").asText("LTN");
+            BigDecimal overallScore = firstDecimal(root, "overall_score", "overallScore");
+            String pslTier = firstString(root, "psl_tier", "pslTier");
+            if (pslTier == null) pslTier = "LTN";
             log.info("trialScan completed userId={} tier={}", userId, pslTier);
             return new TrialScanResponse(overallScore, pslTier, buildTeaser(pslTier, overallScore));
         } catch (JsonProcessingException e) {
@@ -64,9 +67,18 @@ public class AnalyzeService {
         }
     }
 
+    private void checkRefusal(String json, UUID userId) {
+        if (json == null) return;
+        String trimmed = json.trim();
+        // OpenAI refusal pattern: returns near-empty JSON (e.g. "{}") or {"refused":...} when content policy blocks the image
+        if (trimmed.length() < 50 || trimmed.equalsIgnoreCase("{}")) {
+            log.warn("OpenAI returned near-empty response (likely content policy refusal) userId={} content={}", userId, trimmed);
+            throw new BusinessException(HttpStatus.UNPROCESSABLE_ENTITY, "PHOTO_REJECTED",
+                    "Ảnh không phù hợp để phân tích. Vui lòng dùng ảnh chụp khuôn mặt rõ ràng, mặc trang phục lịch sự, đủ sáng và không bị che.");
+        }
+    }
+
     private void validatePhoto(String photo) {
-        // Check encoded length first to avoid decoding huge payloads into heap
-        // 5MB decoded ≈ 6.8MB base64 — use 7MB as ceiling
         if (photo.length() > 7 * 1024 * 1024) {
             throw BusinessException.badRequest("PHOTO_TOO_LARGE", "Photo must be less than 5MB");
         }
@@ -90,85 +102,94 @@ public class AnalyzeService {
     private FullAnalysisResponse parseFullAnalysis(String json) throws JsonProcessingException {
         JsonNode root = objectMapper.readTree(json);
 
-        String pslTier       = root.path("psl_tier").asText(null);
-        String potentialTier = root.path("potential_tier").asText(null);
-        BigDecimal overallScore = toDecimal(root.path("overall_score"));
-        String styleType     = root.path("style_type").asText(null);
+        PslResult psl = new PslResult(
+                firstString(root, "psl_tier", "pslTier"),
+                firstString(root, "potential_tier", "potentialTier"),
+                firstString(root, "style_type", "styleType"),
+                LocalDate.now().toString()
+        );
 
-        Map<String, ResultCategory> categories = new LinkedHashMap<>();
+        List<ResultCategoryData> categories = new ArrayList<>();
         JsonNode catsNode = root.path("categories");
         if (catsNode.isArray()) {
             for (JsonNode cat : catsNode) {
                 String key = cat.path("category").asText(null);
                 if (key == null) continue;
-                BigDecimal catScore = toDecimal(cat.path("overallScore"));
-                List<MetricResult> metrics = parseMetrics(cat.path("metrics"));
-                categories.put(key, new ResultCategory(catScore, scoreTier(catScore), metrics, List.of()));
+                categories.add(new ResultCategoryData(
+                        key,
+                        cat.path("title").asText(""),
+                        firstDecimal(cat, "overallScore", "overall_score", "score"),
+                        parseMetrics(cat.path("metrics"))
+                ));
             }
         }
 
-        return new FullAnalysisResponse(pslTier, potentialTier, overallScore, styleType, categories);
+        return new FullAnalysisResponse(psl, categories);
     }
 
-    private List<MetricResult> parseMetrics(JsonNode metricsNode) {
+    private List<MetricScore> parseMetrics(JsonNode metricsNode) {
         if (!metricsNode.isArray()) return List.of();
-        List<MetricResult> results = new ArrayList<>();
+        List<MetricScore> results = new ArrayList<>();
         for (JsonNode m : metricsNode) {
-            String name = m.path("name").asText(null);
-            BigDecimal value = m.has("measurement") ? toDecimal(m.path("measurement")) : null;
-            BigDecimal[] range = parseRange(m.path("idealRange").asText(null));
-            results.add(new MetricResult(name, value,
-                    range != null ? range[0] : null,
-                    range != null ? range[1] : null,
-                    deriveStatus(value, range)));
+            results.add(new MetricScore(
+                    m.path("name").asText(null),
+                    m.path("subtitle").asText(""),
+                    firstDecimal(m, "score"),
+                    m.hasNonNull("label") ? m.path("label").asText() : null,
+                    m.path("description").asText(""),
+                    parseStringList(m.path("tips")),
+                    firstDecimal(m, "measurement"),
+                    firstString(m, "unit"),
+                    firstString(m, "idealRange", "ideal_range"),
+                    firstString(m, "displayLabel", "display_label")
+            ));
         }
         return results;
     }
 
-    private BigDecimal[] parseRange(String idealRange) {
-        if (idealRange == null || idealRange.isBlank()) return null;
-        Matcher m = RANGE_PATTERN.matcher(idealRange);
-        if (m.find()) {
-            try {
-                return new BigDecimal[]{new BigDecimal(m.group(1)), new BigDecimal(m.group(2))};
-            } catch (NumberFormatException e) {
-                return null;
+    private static List<String> parseStringList(JsonNode node) {
+        if (!node.isArray()) return List.of();
+        List<String> out = new ArrayList<>();
+        for (JsonNode n : node) out.add(n.asText());
+        return out;
+    }
+
+    private static BigDecimal toDecimal(JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode()) return null;
+        if (node.isNumber()) return node.decimalValue();
+        if (node.isTextual()) {
+            try { return new BigDecimal(node.asText().trim()); }
+            catch (NumberFormatException e) { return null; }
+        }
+        return null;
+    }
+
+    private static BigDecimal firstDecimal(JsonNode parent, String... keys) {
+        for (String k : keys) {
+            JsonNode n = parent.path(k);
+            if (!n.isMissingNode() && !n.isNull()) {
+                BigDecimal d = toDecimal(n);
+                if (d != null) return d;
             }
         }
         return null;
     }
 
-    private String deriveStatus(BigDecimal value, BigDecimal[] range) {
-        if (value == null || range == null) return null;
-        if (value.compareTo(range[0]) < 0) return "below";
-        if (value.compareTo(range[1]) > 0) return "above";
-        return "ideal";
-    }
-
-    private static BigDecimal toDecimal(JsonNode node) {
-        if (node == null || node.isNull() || node.isMissingNode()) return null;
-        return node.isNumber() ? node.decimalValue() : null;
-    }
-
-    private static String scoreTier(BigDecimal score) {
-        if (score == null) return "OK";
-        double s = score.doubleValue();
-        if (s >= 8.0) return "Great";
-        if (s >= 6.0) return "Good";
-        if (s >= 4.0) return "OK";
-        return "Bad";
+    private static String firstString(JsonNode parent, String... keys) {
+        for (String k : keys) {
+            JsonNode n = parent.path(k);
+            if (!n.isMissingNode() && !n.isNull()) {
+                return n.asText();
+            }
+        }
+        return null;
     }
 
     private void validateFullAnalysis(FullAnalysisResponse r) {
-        if (r.pslTier() == null || !VALID_TIERS.contains(r.pslTier())) {
+        String tier = r.pslResult() != null ? r.pslResult().pslTier() : null;
+        if (tier == null || !VALID_TIERS.contains(tier)) {
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "OPENAI_INVALID_RESPONSE",
-                    "Invalid PSL tier: " + r.pslTier());
-        }
-        if (r.overallScore() == null
-                || r.overallScore().compareTo(BigDecimal.ZERO) < 0
-                || r.overallScore().compareTo(BigDecimal.TEN) > 0) {
-            throw new BusinessException(HttpStatus.BAD_GATEWAY, "OPENAI_INVALID_RESPONSE",
-                    "Overall score out of range");
+                    "Invalid PSL tier: " + tier);
         }
         if (r.categories() == null || r.categories().size() < 7) {
             throw new BusinessException(HttpStatus.BAD_GATEWAY, "OPENAI_INVALID_RESPONSE",

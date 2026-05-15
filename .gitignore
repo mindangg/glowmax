@@ -24,6 +24,8 @@ frontend/android/
 backend/target/
 backend/HELP.md
 backend/logs/
+backend/src/main/resources/application-dev.yml
+backend/src/main/resources/application-local.yml
 
 # Maven wrapper JAR phải được commit để CI dùng được
 !backend/.mvn/wrapper/maven-wrapper.jar

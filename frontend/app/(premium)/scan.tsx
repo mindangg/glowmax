@@ -23,9 +23,9 @@ export default function ScanTab() {
   const { results: fullResults } = useFullAnalysis();
 
   // Derive score: prefer full analysis appeal score, fallback to trial
-  const fullScore = fullResults?.categories.find((c) => c.category === 'appeal')?.overallScore ?? null;
+  const fullScore = fullResults?.categories.find((c) => c.category === 'appeal')?.overall_score ?? null;
   const score = fullScore ?? trialResult?.overall_score ?? null;
-  const tier = fullResults?.pslResult?.psl_tier ?? null;
+  const tier = fullResults?.psl_result?.psl_tier ?? null;
 
   const hasScanned = trialState === 'used' || score !== null;
 

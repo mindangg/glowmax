@@ -34,10 +34,10 @@ function MetricValue({ metric }: { metric: MetricScore }) {
     );
   }
 
-  if (metric.displayLabel) {
+  if (metric.display_label) {
     return (
       <View style={styles.metricValueCol}>
-        <Text style={styles.metricValueText}>{metric.displayLabel}</Text>
+        <Text style={styles.metricValueText}>{metric.display_label}</Text>
       </View>
     );
   }
@@ -50,8 +50,8 @@ function MetricValue({ metric }: { metric: MetricScore }) {
     return (
       <View style={styles.metricValueCol}>
         <Text style={styles.metricValueText}>{formatted}</Text>
-        {metric.idealRange ? (
-          <Text style={styles.idealRangeText}>IDEAL RANGE: {metric.idealRange}</Text>
+        {metric.ideal_range ? (
+          <Text style={styles.idealRangeText}>IDEAL RANGE: {metric.ideal_range}</Text>
         ) : null}
       </View>
     );
@@ -61,8 +61,8 @@ function MetricValue({ metric }: { metric: MetricScore }) {
   return (
     <View style={styles.metricValueCol}>
       <Text style={styles.metricValueText}>{metric.score.toFixed(2)}</Text>
-      {metric.idealRange ? (
-        <Text style={styles.idealRangeText}>IDEAL RANGE: {metric.idealRange}</Text>
+      {metric.ideal_range ? (
+        <Text style={styles.idealRangeText}>IDEAL RANGE: {metric.ideal_range}</Text>
       ) : null}
     </View>
   );

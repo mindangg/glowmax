@@ -47,8 +47,8 @@ export interface MetricScore {
   tips: string[];
   measurement?: number;
   unit?: string;
-  idealRange?: string;
-  displayLabel?: string;
+  ideal_range?: string;
+  display_label?: string;
 }
 
 export type PSLTier = 'Sub 3' | 'Sub 5' | 'LTN' | 'MTN' | 'HTN' | 'Chang' | 'True Chang';
@@ -64,11 +64,11 @@ export interface ResultCategoryData {
   category: ResultCategory;
   title: string;
   metrics: MetricScore[];
-  overallScore: number;
+  overall_score: number;
 }
 
 export interface FullAnalysisResult {
-  pslResult: PSLResult;
+  psl_result: PSLResult;
   categories: ResultCategoryData[];
 }
 

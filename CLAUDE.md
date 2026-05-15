@@ -120,6 +120,8 @@ All HTTP calls go through `lib/apiClient.ts` (central Axios instance), never fet
 
 **`TrialResult` type** (`types/index.ts`): `{ overall_score, psl_tier, teaser }` — matches `TrialScanResponse` from backend. Does **not** contain `rank` or `total_users` (those come from `submitScore` in `useLeaderboard`).
 
+**Analyze response field naming — snake_case everywhere.** Because Spring Boot 4.0 forces global `SNAKE_CASE` on all responses (see Gotchas), frontend types for the analyze flow use snake_case: `FullAnalysisResult.psl_result`, `ResultCategoryData.overall_score`, `MetricScore.ideal_range`, `MetricScore.display_label`. Don't write `pslResult` / `overallScore` when reading from `useFullAnalysis().results` — TypeScript will compile but the value is `undefined` at runtime.
+
 **`combined_score` formula:** `overall_score × 7 + tier_index × 5`. Computed client-side in `useLeaderboard.submitScore` for optimistic display; backend recomputes authoritatively. Leaderboard scores **never decrease** — the backend uses `GREATEST(existing, new)` on upsert. `useLeaderboard` falls back to a hardcoded `MOCK_LEADERBOARD` on network failure to preserve UX when the DB is empty.
 
 `lib/infoContent.ts` — `INFO_SECTIONS` (22) and `INFO_CATEGORIES` (5) for the premium Info tab, linked from daily tasks via `infoKey`.
@@ -143,7 +145,7 @@ EXPO_PUBLIC_REVENUECAT_ANDROID_KEY=...
 
 **Stack:** Spring Boot 4.0.6 + Java 25 + Maven, PostgreSQL 16 + Flyway, Spring Security stateless + JWT (jjwt 0.12) + nimbus-jose-jwt (Google/Apple JWKS verification), Bucket4j in-memory rate limiting, AWS SDK v2 (S3 avatars) + Thumbnailator, Lombok + Java 25 Records.
 
-**All services are fully implemented.** Jackson is configured with `SNAKE_CASE` naming strategy — Java `camelCase` fields serialize to `snake_case` JSON automatically.
+**All services are fully implemented.** Jackson is configured with `SNAKE_CASE` naming strategy in `application.yml` — Java `camelCase` fields serialize to `snake_case` JSON automatically. ⚠️ Per-class `@JsonNaming(LowerCamelCaseStrategy)` overrides on records do **not** work in Spring Boot 4.0; the global strategy always wins. See Gotchas.
 
 Mobile app sends OAuth `id_token` directly — backend verifies signature via JWKS (no server-side code exchange needed). JWKS keys are fetched on-demand with no local cache.
 
@@ -215,6 +217,21 @@ CI/CD: `.github/workflows/backend.yml` — `test` job on every PR; `build-and-de
 ```
 First build is ~10–15 min slower; subsequent builds are cached. Do **not** disable Frame Processors — `lib/faceCoords.ts` depends on them for AR overlay.
 
+### Spring Boot 4.0 split autoconfiguration into per-integration modules
+
+**Symptom:** App starts but a third-party integration silently doesn't run, or framework beans are missing. Examples hit on this project:
+- Hibernate fails `Schema validation: missing table [profiles]` — Flyway never ran.
+- `No qualifying bean of type 'com.fasterxml.jackson.databind.ObjectMapper'` — Jackson autoconfig never registered.
+
+**Cause:** Spring Boot 4.0 broke `spring-boot-autoconfigure` into separate modules per integration (`spring-boot-flyway`, `spring-boot-jackson`, `spring-boot-jackson2`, `spring-boot-jpa`, `spring-boot-security`, etc.). Pulling in just the underlying library (e.g. `flyway-core`, `jackson-databind`) no longer triggers autoconfig.
+
+**Fix:** For every third-party integration, add the matching `org.springframework.boot:spring-boot-<integration>` module alongside the library:
+- **Flyway:** add `spring-boot-flyway` (not just `flyway-core` + `flyway-database-postgresql`).
+- **Jackson 2** (`com.fasterxml.jackson.*` — what this project uses): add `spring-boot-jackson2` + an explicit `jackson-databind` dep. Do **not** use `spring-boot-jackson` / `spring-boot-starter-jackson` — those are for Jackson 3 (`tools.jackson.*`); `JacksonAutoConfiguration` is `@ConditionalOnClass(tools.jackson.databind.json.JsonMapper)` and won't wire a Jackson 2 `ObjectMapper`.
+- The web starter (`spring-boot-starter-web`) no longer transitively pulls Jackson — must be added explicitly.
+
+To check whether a Spring Boot integration module exists for something, look in `~/.m2/repository/org/springframework/boot/` after a build, or grep `spring-boot-dependencies-4.0.6.pom` in the BOM.
+
 ### EAS build: lockfile out of sync with npm version
 
 **Symptom:** `npm ci` fails with `Missing: react-native-worklets@X.Y.Z from lock file` (or similar) for packages that don't match what's in `package.json`.
@@ -227,3 +244,36 @@ First build is ~10–15 min slower; subsequent builds are cached. Do **not** dis
 3. Keep `react-native-worklets` at `^0.8.0` or newer to match the Reanimated version resolved by `^4.2.1`
 
 **Note:** The `EXPO_USE_PRECOMPILED_MODULES=1` warning in EAS logs is non-fatal — it's a side effect of `buildReactNativeFromSource: true` and is expected.
+
+### Spring Boot 4.0 ignores `@JsonNaming` overrides on records
+
+**Symptom:** A DTO record annotated with `@JsonNaming(PropertyNamingStrategies.LowerCamelCaseStrategy.class)` still serializes its fields in `snake_case` (matching the global `spring.jackson.property-naming-strategy: SNAKE_CASE`). Frontend reads `data.pslResult` / `data.categories[].overallScore` and gets `undefined`, while the wire actually contains `psl_result` / `overall_score`.
+
+**Cause:** With `spring-boot-jackson2` autoconfig in Spring Boot 4.0, the global naming strategy applied via `application.yml` wins over per-class `@JsonNaming` annotations on Java records. `@JsonNaming(SnakeCaseStrategy)` works (it agrees with the global), but `LowerCamelCaseStrategy` overrides are silently ignored.
+
+**Fix:** Do NOT rely on `@JsonNaming(LowerCamelCaseStrategy)` to opt a DTO out of the global snake_case. Either:
+- Accept the wire is snake_case everywhere and make frontend TypeScript types match (this project's choice — `FullAnalysisResult.psl_result`, `ResultCategoryData.overall_score`, `MetricScore.ideal_range` / `display_label`), OR
+- Write a custom `Jackson2ObjectMapperBuilderCustomizer` bean that scopes naming per class.
+
+Always log the wire JSON (`objectMapper.writeValueAsString(response)`) when diagnosing field-name mismatches — `cat -n` of the DTO is misleading because the annotation looks right.
+
+### Analyze response parser tolerates both naming styles
+
+[AnalyzeService.parseFullAnalysis](backend/src/main/java/com/glowmax/service/AnalyzeService.java) uses `firstDecimal(node, "overallScore", "overall_score", "score")` and `firstString(node, "idealRange", "ideal_range")` to read GPT-4o output. GPT tends to mirror the casing of the surrounding prompt (which uses snake_case for top-level `psl_tier` / `overall_score` and was historically mixed for nested fields). The tolerant parser absorbs that drift so prompt tweaks don't break parsing.
+
+### OpenAI content policy refusals look like success
+
+**Symptom:** Backend returns 502 `Invalid PSL tier: null` after a scan that took only ~2 seconds (vs the normal 15–30s). OpenAI's HTTP status is `200 OK`, `finish_reason=stop`, but `content_length=4` (the body is literally `{}`).
+
+**Cause:** When GPT-4o refuses an image under content policy (e.g. shirtless / nudity / minors), the response shape with `response_format: json_object` is just an empty `{}` — not an error, not a refusal field. `validateFullAnalysis` then throws on the missing tier and surfaces as a generic 502.
+
+**Fix:** [AnalyzeService.checkRefusal](backend/src/main/java/com/glowmax/service/AnalyzeService.java) runs after the OpenAI call and before parsing. If response is `<50 chars` or `{}`, it throws `PHOTO_REJECTED` (422) with a Vietnamese message instructing the user to send a frontal face photo, properly clothed, well-lit. Camera screens [(onboarding)/camera.tsx](frontend/app/(onboarding)/camera.tsx) and [camera-side.tsx](frontend/app/(onboarding)/camera-side.tsx) show a `tipText` hint ("Mặt nhìn thẳng • Đủ sáng • Mặc trang phục lịch sự") to reduce rejection rate up front.
+
+### OpenAI analyze prompt invariants
+
+[OpenAiService.SYSTEM_PROMPT](backend/src/main/java/com/glowmax/service/OpenAiService.java) is the contract with the model. When editing:
+- **Tier names must exactly match `AnalyzeService.VALID_TIERS`**: `Sub 3, Sub 5, LTN, MTN, HTN, Chang, True Chang`. Inventing variants (e.g. "Chang-lite") causes `validateFullAnalysis` to throw `OPENAI_INVALID_RESPONSE` → 502.
+- **Score scale is 0.0–10.0**, not 0–100. `combined_score = overall_score × 7 + tier_index × 5` (client-side in `useLeaderboard.submitScore`) depends on this.
+- **Exactly 49 metrics across 9 categories** (`jaw=7, eyes=7, orbitals=7, zygos=7, harmony=6, nose=7, hair=4, skin=4, appeal=0`). The prompt enumerates each metric by name + position and ends with a "VALIDATION before responding" instruction. GPT-4o tends to skip metrics without this enforcement.
+- **`temperature: 0.3`** (low) — output stability matters more than creativity for structured aesthetic scoring.
+- **`max_tokens: 8000`** — full output is ~10K chars with all 49 metrics + descriptions + tips. Below ~6000 the response truncates mid-JSON and `finish_reason=length`. Check the `OpenAI finish_reason=... content_length=...` log line in [OpenAiService.java](backend/src/main/java/com/glowmax/service/OpenAiService.java).
